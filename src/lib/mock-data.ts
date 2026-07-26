@@ -208,6 +208,14 @@ export function getClassById(id: string): ClassSession | undefined {
   return CLASSES.find(c => c.id === id);
 }
 
+/** The Saturday session with the highest booked/capacity ratio — the forecast target. */
+export function getForecastTarget(): ClassSession {
+  const saturdayClasses = getClassesForDay(6);
+  return saturdayClasses.reduce((best, c) =>
+    c.booked / c.capacity > best.booked / best.capacity ? c : best,
+  );
+}
+
 // Dashboard KPIs
 export function getTodayStats() {
   const today = getTodaysClasses();
