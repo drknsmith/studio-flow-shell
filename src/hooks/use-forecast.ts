@@ -11,8 +11,17 @@ import { DEFAULT_RECOMMENDATION } from "@/lib/capacity-model";
 let isOpen = false;
 const openListeners = new Set<() => void>();
 
+// True until the forecast sheet has been opened at least once this session — drives the
+// sidebar's notification dot so a fresh session surfaces that a recommendation is waiting.
+let hasPendingRecommendation = true;
+const pendingListeners = new Set<() => void>();
+
 function setForecastSheetOpen(open: boolean) {
   isOpen = open;
+  if (open && hasPendingRecommendation) {
+    hasPendingRecommendation = false;
+    pendingListeners.forEach((l) => l());
+  }
   openListeners.forEach((l) => l());
 }
 
@@ -24,6 +33,15 @@ function subscribeOpen(listener: () => void) {
 export function useForecastSheetOpen() {
   const open = useSyncExternalStore(subscribeOpen, () => isOpen);
   return { open, setOpen: setForecastSheetOpen };
+}
+
+function subscribePending(listener: () => void) {
+  pendingListeners.add(listener);
+  return () => pendingListeners.delete(listener);
+}
+
+export function useHasPendingRecommendation() {
+  return useSyncExternalStore(subscribePending, () => hasPendingRecommendation);
 }
 
 let committedSession: ClassSession | null = null;
