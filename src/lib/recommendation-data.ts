@@ -205,3 +205,133 @@ export const RECOMMENDATION_SLOTS: RecommendationSlotDef[] = [
 /** Just the "current class" side of each slot — what mock-data.ts needs to guarantee real
  *  staffing options at each recommendation's proposed new-session slot. */
 export const RECOMMENDATION_TARGETS: RecommendationTargetInfo[] = RECOMMENDATION_SLOTS.map(s => s.target);
+
+// --- Underperforming-class scenarios ---------------------------------------
+// The inverse workflow: a session booking under 50% gets one pre-assigned fix — move its
+// time, swap its instructor, or swap the class format entirely. Never user-toggleable between
+// fix types; each slot's diagnosis is fixed, authored content, same as the add-capacity slots.
+
+export type FixType = "time" | "instructor" | "classType";
+
+export interface UnderperformingProposal {
+  /** Short label for the proposed alternative, e.g. "6:30pm, Tuesdays" / "Theo Bishop" / "Restorative Flow". */
+  label: string;
+  /** Supporting comparative-performance reason for this specific proposal. */
+  description: string;
+  /** Typical booking rate for the proposed alternative, 0-100. */
+  projectedBookingPct: number;
+  newDayOfWeek?: number;
+  newStartHour?: number;
+  newInstructorId?: string;
+  newClassName?: string;
+  newCategory?: ClassCategory;
+  newCapacity?: number;
+  newPrice?: number;
+}
+
+export interface UnderperformingSlotDef {
+  id: string;
+  week: SlotWeek;
+  target: RecommendationTargetInfo;
+  fixType: FixType;
+  headline: string;
+  pattern: string;
+  rationale: string;
+  proposal: UnderperformingProposal;
+  /** Contextual client-sentiment reading for the current session — supporting info, not a lever. */
+  sentimentContext: number;
+}
+
+export const UNDERPERFORMING_SLOTS: UnderperformingSlotDef[] = [
+  // --- This week (3) -------------------------------------------------------
+  {
+    id: "underperf-tue-6am-w0",
+    week: "this",
+    target: { name: "Sunrise Flow", category: "yoga", room: "Studio A", dayOfWeek: 2, startHour: 6, durationMin: 60, capacity: 20, booked: 7, price: 28, instructorId: "i5" },
+    fixType: "time",
+    headline: "Move Sunrise Flow from 6am to 6:30pm on Tuesdays",
+    pattern: "Under 40% booked in 6 of the last 8 Tuesdays",
+    rationale: "Tuesday's 6am Sunrise Flow struggles to fill — early risers skip Tuesdays more than any other weekday, but evening yoga on Tuesdays consistently books out elsewhere on the schedule. Moving this session to 6:30pm keeps the same room and instructor, no new slot required.",
+    proposal: {
+      label: "6:30pm, Tuesdays",
+      description: "Evening yoga sessions this week are averaging 78% booked — a like-for-like slot swap, not a new class.",
+      projectedBookingPct: 78,
+      newDayOfWeek: 2,
+      newStartHour: 18.5,
+      newCapacity: 20,
+      newPrice: 28,
+    },
+    sentimentContext: 54,
+  },
+  {
+    id: "underperf-wed-12pm-w0",
+    week: "this",
+    target: { name: "Barre Sculpt", category: "barre", room: "Studio B", dayOfWeek: 3, startHour: 12, durationMin: 55, capacity: 16, booked: 7, price: 30, instructorId: "i3" },
+    fixType: "instructor",
+    headline: "Swap Wednesday's Barre Sculpt instructor to Theo Bishop",
+    pattern: "Under 50% booked in 5 of the last 8 Wednesdays",
+    rationale: "Priya Ranjan's Wednesday midday Barre Sculpt has been running under capacity while Theo Bishop's Barre Sculpt sessions elsewhere on the schedule average well above 80%. Same slot, same room — just a different instructor at the front of the room.",
+    proposal: {
+      label: "Theo Bishop",
+      description: "Theo Bishop's other Barre Sculpt sessions this week are averaging 83% booked.",
+      projectedBookingPct: 83,
+      newInstructorId: "i5",
+    },
+    sentimentContext: 61,
+  },
+  {
+    id: "underperf-fri-8pm-w0",
+    week: "this",
+    target: { name: "Stillness", category: "meditation", room: "Studio C", dayOfWeek: 5, startHour: 20, durationMin: 30, capacity: 20, booked: 6, price: 18, instructorId: "i1" },
+    fixType: "classType",
+    headline: "Replace Friday's Stillness with Restorative Flow",
+    pattern: "Under 35% booked in 6 of the last 8 Fridays",
+    rationale: "Late Friday meditation is the softest booking slot on the schedule — clients want to physically unwind after the week, not sit still. A gentler, movement-based Restorative Flow in the same slot has historically outperformed pure meditation on Friday nights.",
+    proposal: {
+      label: "Restorative Flow",
+      description: "Restorative-style formats in comparable Friday evening slots average 72% booked, more than double Stillness's current rate.",
+      projectedBookingPct: 72,
+      newClassName: "Restorative Flow",
+      newCategory: "yoga",
+      newCapacity: 18,
+      newPrice: 22,
+    },
+    sentimentContext: 47,
+  },
+  // --- Next week (2) ---------------------------------------------------------
+  {
+    id: "underperf-sun-12pm-w1",
+    week: "next",
+    target: { name: "Barre Sculpt", category: "barre", room: "Studio B", dayOfWeek: 7, startHour: 12, durationMin: 55, capacity: 16, booked: 6, price: 30, instructorId: "i3" },
+    fixType: "time",
+    headline: "Move Sunday's Barre Sculpt from 12pm to 10am",
+    pattern: "Under 45% booked in 5 of the last 8 Sundays",
+    rationale: "Sunday midday competes with brunch and family plans — the slowest booking window of the weekend. Late-morning Sunday classes consistently outperform midday ones across the studio, without touching the room or instructor.",
+    proposal: {
+      label: "10am, Sundays",
+      description: "Late-morning Sunday sessions are averaging 74% booked this month.",
+      projectedBookingPct: 74,
+      newDayOfWeek: 7,
+      newStartHour: 10,
+      newCapacity: 16,
+      newPrice: 30,
+    },
+    sentimentContext: 58,
+  },
+  {
+    id: "underperf-fri-8pm-w1",
+    week: "next",
+    target: { name: "Stillness", category: "meditation", room: "Studio C", dayOfWeek: 5, startHour: 20, durationMin: 30, capacity: 20, booked: 6, price: 18, instructorId: "i8" },
+    fixType: "instructor",
+    headline: "Swap Friday's Stillness instructor to Nora Alderman",
+    pattern: "Under 40% booked in 6 of the last 8 Fridays",
+    rationale: "Rhea Delaine's Friday night Stillness sessions are consistently the lowest-booked meditation slot of the week, while Nora Alderman's sessions earlier in the week run well ahead of capacity. Same format, same time — a calmer, more established voice for the Friday close.",
+    proposal: {
+      label: "Nora Alderman",
+      description: "Nora Alderman's meditation sessions elsewhere this week are averaging 68% booked.",
+      projectedBookingPct: 68,
+      newInstructorId: "i1",
+    },
+    sentimentContext: 44,
+  },
+];

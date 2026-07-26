@@ -16,13 +16,21 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { computeOutcome, solveSeatsAndPriceForSentiment } from "@/lib/capacity-model";
 import { DAY_NAMES_FULL } from "@/lib/mock-data";
-import { getRecommendationById, type Recommendation } from "@/lib/recommendations";
-import { commitRecommendation, useSelectedRecommendationId } from "@/hooks/use-forecast";
+import {
+  getRecommendationById,
+  type AddCapacityRecommendation,
+  type Recommendation,
+  type UnderperformingRecommendation,
+} from "@/lib/recommendations";
+import { commitAddCapacityRecommendation, useSelectedRecommendationId } from "@/hooks/use-forecast";
 import { RecommendationPanel } from "./RecommendationPanel";
 import { LinkedControls } from "./LinkedControls";
 import { RevenuePanel } from "./RevenuePanel";
 import { StaffingPanel, getAvailableInstructors } from "./StaffingPanel";
 import { CommitPanel } from "./CommitPanel";
+import { UnderperformingPanel } from "./UnderperformingPanel";
+import { FixComparisonPanel } from "./FixComparisonPanel";
+import { UnderperformingCommitPanel } from "./UnderperformingCommitPanel";
 
 /** Global detail modal, level two of the notification flow. Wraps the actual content so the
  *  Dialog/Drawer can still play its close animation after selectedRecommendationId goes back
@@ -37,22 +45,35 @@ export function RecommendationDetailSheet() {
   const recommendation = lastRecommendation.current;
   if (!recommendation) return null;
 
+  const open = !!id;
+  const onOpenChange = (o: boolean) => !o && setId(null);
+
+  if (recommendation.kind === "underperforming") {
+    return (
+      <UnderperformingDetailContent
+        key={recommendation.id}
+        recommendation={recommendation}
+        open={open}
+        onOpenChange={onOpenChange}
+      />
+    );
+  }
   return (
-    <RecommendationDetailContent
+    <AddCapacityDetailContent
       key={recommendation.id}
       recommendation={recommendation}
-      open={!!id}
-      onOpenChange={(open) => !open && setId(null)}
+      open={open}
+      onOpenChange={onOpenChange}
     />
   );
 }
 
-function RecommendationDetailContent({
+function AddCapacityDetailContent({
   recommendation,
   open,
   onOpenChange,
 }: {
-  recommendation: Recommendation;
+  recommendation: AddCapacityRecommendation;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -95,7 +116,7 @@ function RecommendationDetailContent({
 
   function handleProceed() {
     const finalInstructorId = instructorId ?? availableInstructors[0]?.id ?? recommendation.target.instructorId;
-    commitRecommendation(recommendation.id, {
+    commitAddCapacityRecommendation(recommendation.id, {
       id: `forecast-${recommendation.target.id}`,
       name: recommendation.newSession.name,
       category: recommendation.newSession.category,
@@ -172,6 +193,53 @@ function RecommendationDetailContent({
         <DialogHeader>
           <DialogTitle className="font-display text-lg">Capacity forecast</DialogTitle>
           <DialogDescription>{dayName} demand is outpacing supply for {recommendation.target.name}.</DialogDescription>
+        </DialogHeader>
+        {sections}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UnderperformingDetailContent({
+  recommendation,
+  open,
+  onOpenChange,
+}: {
+  recommendation: UnderperformingRecommendation;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const isMobile = useIsMobile();
+  const dayName = DAY_NAMES_FULL[recommendation.dayOfWeek - 1];
+
+  const sections = (
+    <>
+      <UnderperformingPanel recommendation={recommendation} />
+      <FixComparisonPanel recommendation={recommendation} />
+      <UnderperformingCommitPanel recommendation={recommendation} />
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="font-display text-lg">Underperforming class</DrawerTitle>
+            <DrawerDescription>{dayName} bookings are running well under half capacity for {recommendation.target.name}.</DrawerDescription>
+          </DrawerHeader>
+          <div className="space-y-4 overflow-y-auto px-4 pb-6">{sections}</div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg">Underperforming class</DialogTitle>
+          <DialogDescription>{dayName} bookings are running well under half capacity for {recommendation.target.name}.</DialogDescription>
         </DialogHeader>
         {sections}
       </DialogContent>

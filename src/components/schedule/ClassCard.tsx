@@ -36,7 +36,10 @@ export function ClassCard({
       )}
     >
       {showForecastBadge && matchedRecommendation && (
-        <AIFlashBadge onClick={() => setId(matchedRecommendation.id)} />
+        <AIFlashBadge
+          onClick={() => setId(matchedRecommendation.id)}
+          variant={matchedRecommendation.kind === "underperforming" ? "risk" : "opportunity"}
+        />
       )}
       <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0 truncate font-display text-sm font-semibold">

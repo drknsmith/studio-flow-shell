@@ -69,17 +69,31 @@ export function useSelectedRecommendationId() {
   return { id, setId: setSelectedRecommendationId };
 }
 
-const committedSessions = new Map<string, ClassSession>();
-let committedSessionsSnapshot: ClassSession[] = [];
+// "Committed" ids track both recommendation kinds (drives badge/list filtering). "Added
+// sessions" is add-capacity only — the literal new ClassSession the Schedule grid renders.
+// Underperforming fixes don't add a session to the grid, just mark themselves resolved.
+const addedSessions = new Map<string, ClassSession>();
+const committedIds = new Set<string>();
+let addedSessionsSnapshot: ClassSession[] = [];
 let committedIdsSnapshot: Set<string> = new Set();
 const committedListeners = new Set<() => void>();
 
-/** Each recommendation commits independently — you can proceed with several at once. */
-export function commitRecommendation(recommendationId: string, session: ClassSession) {
-  committedSessions.set(recommendationId, session);
-  committedSessionsSnapshot = Array.from(committedSessions.values());
-  committedIdsSnapshot = new Set(committedSessions.keys());
+function notifyCommitted() {
+  addedSessionsSnapshot = Array.from(addedSessions.values());
+  committedIdsSnapshot = new Set(committedIds);
   committedListeners.forEach(l => l());
+}
+
+/** Each recommendation commits independently — you can proceed with several at once. */
+export function commitAddCapacityRecommendation(recommendationId: string, session: ClassSession) {
+  addedSessions.set(recommendationId, session);
+  committedIds.add(recommendationId);
+  notifyCommitted();
+}
+
+export function commitUnderperformingRecommendation(recommendationId: string) {
+  committedIds.add(recommendationId);
+  notifyCommitted();
 }
 
 function subscribeCommitted(listener: () => void) {
@@ -87,9 +101,10 @@ function subscribeCommitted(listener: () => void) {
   return () => committedListeners.delete(listener);
 }
 
-/** All committed new sessions, for the Schedule grid to render alongside the generated ones. */
+/** Add-capacity's committed new sessions, for the Schedule grid to render alongside the
+ *  generated ones. */
 export function useCommittedSessions(): ClassSession[] {
-  return useSyncExternalStore(subscribeCommitted, () => committedSessionsSnapshot);
+  return useSyncExternalStore(subscribeCommitted, () => addedSessionsSnapshot);
 }
 
 export function useIsRecommendationCommitted(recommendationId: string): boolean {
@@ -110,8 +125,8 @@ export function useForecastToast(enabled = true, delayMs = 1500) {
     const timer = setTimeout(() => {
       const count = getResolvedRecommendations().length;
       if (count === 0) return;
-      toast(`${count} capacity recommendation${count === 1 ? "" : "s"} ready to review`, {
-        description: "Classes running close to capacity across the next two weeks.",
+      toast(`${count} class recommendation${count === 1 ? "" : "s"} ready to review`, {
+        description: "Sessions running near capacity or underperforming across the next two weeks.",
         action: {
           label: "View",
           onClick: () => setRecommendationListOpen(true),

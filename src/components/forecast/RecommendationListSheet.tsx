@@ -1,4 +1,5 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sparkles, TrendingDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -54,8 +55,8 @@ export function RecommendationListSheet() {
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="text-left">
-            <DrawerTitle className="font-display text-lg">Capacity recommendations</DrawerTitle>
-            <DrawerDescription>Classes running close to capacity across the next two weeks.</DrawerDescription>
+            <DrawerTitle className="font-display text-lg">Class recommendations</DrawerTitle>
+            <DrawerDescription>Sessions running near capacity or underperforming across the next two weeks.</DrawerDescription>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-6">{body}</div>
         </DrawerContent>
@@ -67,8 +68,8 @@ export function RecommendationListSheet() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display text-lg">Capacity recommendations</DialogTitle>
-          <DialogDescription>Classes running close to capacity across the next two weeks.</DialogDescription>
+          <DialogTitle className="font-display text-lg">Class recommendations</DialogTitle>
+          <DialogDescription>Sessions running near capacity or underperforming across the next two weeks.</DialogDescription>
         </DialogHeader>
         {body}
       </DialogContent>
@@ -76,8 +77,15 @@ export function RecommendationListSheet() {
   );
 }
 
+const KIND_META: Record<Recommendation["kind"], { label: string; icon: typeof Sparkles; color: string }> = {
+  "add-capacity": { label: "High Demand — Add", icon: Sparkles, color: "text-success" },
+  underperforming: { label: "Underperforming — Replace", icon: TrendingDown, color: "text-destructive" },
+};
+
 function RecommendationCard({ recommendation, onOpen }: { recommendation: Recommendation; onOpen: () => void }) {
   const dayAbbrev = DAY_NAMES_FULL[recommendation.dayOfWeek - 1].slice(0, 3);
+  const meta = KIND_META[recommendation.kind];
+  const Icon = meta.icon;
   return (
     <button
       type="button"
@@ -91,7 +99,10 @@ function RecommendationCard({ recommendation, onOpen }: { recommendation: Recomm
         <div className="mt-0.5 truncate font-display font-semibold text-foreground">
           {recommendation.target.name}
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">{recommendation.recommendationType}</div>
+        <div className={cn("mt-0.5 flex items-center gap-1 text-xs font-medium", meta.color)}>
+          <Icon className="h-3 w-3 shrink-0" />
+          <span>{meta.label}</span>
+        </div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     </button>

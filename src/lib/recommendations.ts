@@ -1,9 +1,18 @@
-// Resolves the 13 fixed recommendation slots (recommendation-data.ts) onto real calendar
+// Resolves the 18 fixed recommendation slots (recommendation-data.ts) onto real calendar
 // dates. This is the only place "today" enters the recommendation system — the slot content
 // itself never changes, only which live date each day-of-week maps to.
 
 import { addDays, getWeekStart, toDateISO, type ClassCategory, type ClassSession } from "./mock-data";
-import { RECOMMENDATION_SLOTS, type RecommendationSlotDef } from "./recommendation-data";
+import {
+  RECOMMENDATION_SLOTS,
+  UNDERPERFORMING_SLOTS,
+  type RecommendationSlotDef,
+  type UnderperformingSlotDef,
+  type UnderperformingProposal,
+  type FixType,
+} from "./recommendation-data";
+
+export type { FixType, UnderperformingProposal };
 
 export interface RecommendedSession {
   name: string;
@@ -31,26 +40,48 @@ export interface RecommendationTarget {
   instructorId: string;
 }
 
-export interface Recommendation {
+interface ResolvedBase {
   id: string;
-  recommendationType: string;
   date: Date;
   dateISO: string;
   dayOfWeek: number;
   headline: string;
   pattern: string;
   rationale: string;
-  newSession: RecommendedSession;
-  defaults: { seats: number; price: number; sentiment: number; capacityPct: number };
   target: RecommendationTarget;
 }
 
-function resolveSlot(slot: RecommendationSlotDef): Recommendation {
-  const weekStart = getWeekStart(slot.week === "this" ? 0 : 1);
-  const date = addDays(weekStart, slot.target.dayOfWeek - 1);
-  const dateISO = toDateISO(date);
+export interface AddCapacityRecommendation extends ResolvedBase {
+  kind: "add-capacity";
+  recommendationType: string;
+  newSession: RecommendedSession;
+  defaults: { seats: number; price: number; sentiment: number; capacityPct: number };
+}
+
+export interface UnderperformingRecommendation extends ResolvedBase {
+  kind: "underperforming";
+  fixType: FixType;
+  proposal: UnderperformingProposal;
+  sentimentContext: number;
+}
+
+export type Recommendation = AddCapacityRecommendation | UnderperformingRecommendation;
+
+function resolveDate(week: "this" | "next", dayOfWeek: number) {
+  const weekStart = getWeekStart(week === "this" ? 0 : 1);
+  const date = addDays(weekStart, dayOfWeek - 1);
+  return { date, dateISO: toDateISO(date) };
+}
+
+function resolveTarget(slot: { id: string; target: RecommendationSlotDef["target"] }, dateISO: string): RecommendationTarget {
+  return { id: `${slot.id}-target`, ...slot.target, dateISO };
+}
+
+function resolveAddCapacitySlot(slot: RecommendationSlotDef): AddCapacityRecommendation {
+  const { date, dateISO } = resolveDate(slot.week, slot.target.dayOfWeek);
   return {
     id: slot.id,
+    kind: "add-capacity",
     recommendationType: slot.recommendationType,
     date,
     dateISO,
@@ -60,14 +91,34 @@ function resolveSlot(slot: RecommendationSlotDef): Recommendation {
     rationale: slot.rationale,
     newSession: { ...slot.newSession, dateISO },
     defaults: slot.defaults,
-    target: { id: `${slot.id}-target`, ...slot.target, dateISO },
+    target: resolveTarget(slot, dateISO),
   };
 }
 
-/** Recomputed on each call (cheap — 13 items) so it always reflects "today" as of the moment
+function resolveUnderperformingSlot(slot: UnderperformingSlotDef): UnderperformingRecommendation {
+  const { date, dateISO } = resolveDate(slot.week, slot.target.dayOfWeek);
+  return {
+    id: slot.id,
+    kind: "underperforming",
+    date,
+    dateISO,
+    dayOfWeek: slot.target.dayOfWeek,
+    headline: slot.headline,
+    pattern: slot.pattern,
+    rationale: slot.rationale,
+    fixType: slot.fixType,
+    proposal: slot.proposal,
+    sentimentContext: slot.sentimentContext,
+    target: resolveTarget(slot, dateISO),
+  };
+}
+
+/** Recomputed on each call (cheap — 18 items) so it always reflects "today" as of the moment
  *  it's read, consistent with how the rest of the schedule resolves live dates. */
 export function getResolvedRecommendations(): Recommendation[] {
-  return RECOMMENDATION_SLOTS.map(resolveSlot).sort((a, b) =>
+  const addCapacity = RECOMMENDATION_SLOTS.map(resolveAddCapacitySlot);
+  const underperforming = UNDERPERFORMING_SLOTS.map(resolveUnderperformingSlot);
+  return [...addCapacity, ...underperforming].sort((a, b) =>
     a.dateISO === b.dateISO ? a.target.startHour - b.target.startHour : a.dateISO.localeCompare(b.dateISO),
   );
 }
