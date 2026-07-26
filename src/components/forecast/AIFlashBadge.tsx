@@ -1,9 +1,9 @@
-import { Sparkles, TrendingDown } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const VARIANTS = {
   opportunity: {
-    icon: Sparkles,
+    icon: TrendingUp,
     fill: "bg-success text-background",
     ping: "bg-success/60",
     label: "View AI capacity forecast",

@@ -5,12 +5,14 @@ import { RECOMMENDATION_TARGETS } from "./recommendation-data";
 
 export type ClassCategory = "yoga" | "pilates" | "cycle" | "hiit" | "barre" | "meditation" | "strength";
 
+export type InstructorAvatarColor = "dusk" | "apricot" | "sandy" | "pumpkin";
+
 export type Instructor = {
   id: string;
   name: string;
   initials: string;
   specialties: ClassCategory[];
-  avatarColor: string; // seed for avatar
+  avatarColor: InstructorAvatarColor;
 };
 
 export type ClassSession = {
@@ -60,14 +62,14 @@ export type WeeklyAvailability = {
 };
 
 export const INSTRUCTORS: Instructor[] = [
-  { id: "i1", name: "Nora Alderman", initials: "NA", specialties: ["yoga", "meditation"], avatarColor: "155" },
-  { id: "i2", name: "Marcus Vale", initials: "MV", specialties: ["hiit", "strength"], avatarColor: "78" },
-  { id: "i3", name: "Priya Ranjan", initials: "PR", specialties: ["pilates", "barre"], avatarColor: "170" },
-  { id: "i4", name: "Elena Cross", initials: "EC", specialties: ["cycle", "hiit"], avatarColor: "45" },
-  { id: "i5", name: "Theo Bishop", initials: "TB", specialties: ["yoga", "barre"], avatarColor: "140" },
-  { id: "i6", name: "Sana Okafor", initials: "SO", specialties: ["strength", "hiit"], avatarColor: "60" },
-  { id: "i7", name: "Julian Mora", initials: "JM", specialties: ["cycle"], avatarColor: "90" },
-  { id: "i8", name: "Rhea Delaine", initials: "RD", specialties: ["pilates", "meditation"], avatarColor: "180" },
+  { id: "i1", name: "Nora Alderman", initials: "NA", specialties: ["yoga", "meditation"], avatarColor: "dusk" },
+  { id: "i2", name: "Marcus Vale", initials: "MV", specialties: ["hiit", "strength"], avatarColor: "pumpkin" },
+  { id: "i3", name: "Priya Ranjan", initials: "PR", specialties: ["pilates", "barre"], avatarColor: "sandy" },
+  { id: "i4", name: "Elena Cross", initials: "EC", specialties: ["cycle", "hiit"], avatarColor: "apricot" },
+  { id: "i5", name: "Theo Bishop", initials: "TB", specialties: ["yoga", "barre"], avatarColor: "dusk" },
+  { id: "i6", name: "Sana Okafor", initials: "SO", specialties: ["strength", "hiit"], avatarColor: "pumpkin" },
+  { id: "i7", name: "Julian Mora", initials: "JM", specialties: ["cycle"], avatarColor: "sandy" },
+  { id: "i8", name: "Rhea Delaine", initials: "RD", specialties: ["pilates", "meditation"], avatarColor: "apricot" },
 ];
 
 const CLASS_TEMPLATES: Array<Omit<ClassSession, "id" | "dateISO" | "dayOfWeek" | "booked" | "instructorId"> & { instructorPool: string[]; bookRange: [number, number] }> = [

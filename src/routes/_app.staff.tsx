@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { InstructorCard } from "@/components/staff/InstructorCard";
+import { InstructorAvatar } from "@/components/staff/InstructorAvatar";
 import { AvailabilityGrid } from "@/components/staff/AvailabilityGrid";
 import {
   INSTRUCTORS,
@@ -58,13 +59,16 @@ function StaffPage() {
 
           <section className="space-y-6">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Instructor
-                </div>
-                <h2 className="font-display text-3xl font-semibold">{selected.name}</h2>
-                <div className="text-sm text-muted-foreground">
-                  {selected.specialties.join(" · ")}
+              <div className="flex items-center gap-4">
+                <InstructorAvatar instructor={selected} size="lg" />
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Instructor
+                  </div>
+                  <h2 className="font-display text-3xl font-semibold">{selected.name}</h2>
+                  <div className="text-sm text-muted-foreground">
+                    {selected.specialties.join(" · ")}
+                  </div>
                 </div>
               </div>
             </div>

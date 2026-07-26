@@ -1,5 +1,6 @@
 import { getTodaysClasses, getInstructor, formatHour } from "@/lib/mock-data";
 import { CapacityBar } from "@/components/schedule/CapacityBar";
+import { InstructorAvatar } from "@/components/staff/InstructorAvatar";
 import { Card } from "@/components/ui/card";
 
 export function TodayScheduleList() {
@@ -28,6 +29,11 @@ export function TodayScheduleList() {
                   {c.name}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
+                  {instructor && (
+                    <span className="mr-1.5 inline-flex align-middle">
+                      <InstructorAvatar instructor={instructor} size="sm" />
+                    </span>
+                  )}
                   {instructor?.name} · {c.room}
                 </div>
               </div>

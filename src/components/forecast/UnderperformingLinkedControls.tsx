@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Slider } from "@/components/ui/slider";
+import { InstructorAvatar } from "@/components/staff/InstructorAvatar";
+import { getInstructor } from "@/lib/mock-data";
 import type { UnderperformingToggles } from "@/lib/recommendations";
 
 export function UnderperformingLinkedControls({
@@ -55,11 +57,15 @@ export function UnderperformingLinkedControls({
           onValueChange={(v) => v && onInstructorChange(v)}
           className="flex-wrap justify-start"
         >
-          {toggles.instructor.map((opt) => (
-            <ToggleGroupItem key={opt.id} value={opt.id} variant="outline" className="h-auto px-3 py-1.5 text-sm">
-              {opt.label}
-            </ToggleGroupItem>
-          ))}
+          {toggles.instructor.map((opt) => {
+            const instructor = getInstructor(opt.instructorId);
+            return (
+              <ToggleGroupItem key={opt.id} value={opt.id} variant="outline" className="h-auto gap-2 px-3 py-1.5 text-sm">
+                {instructor && <InstructorAvatar instructor={instructor} size="sm" />}
+                {opt.label}
+              </ToggleGroupItem>
+            );
+          })}
         </ToggleGroup>
       </ControlRow>
 

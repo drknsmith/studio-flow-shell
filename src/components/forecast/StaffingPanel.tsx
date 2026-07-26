@@ -1,5 +1,6 @@
 import { AVAILABILITY, INSTRUCTORS, getInstructor, type Instructor } from "@/lib/mock-data";
 import { X } from "lucide-react";
+import { InstructorAvatar } from "@/components/staff/InstructorAvatar";
 import {
   Select,
   SelectContent,
@@ -37,7 +38,10 @@ export function StaffingPanel({
       <div className="mb-2 text-sm font-medium text-foreground">Staffing</div>
       {selected ? (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
-          <span className="text-sm">{selected.name}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <InstructorAvatar instructor={selected} size="sm" />
+            <span className="truncate text-sm">{selected.name}</span>
+          </div>
           <button
             type="button"
             onClick={() => onSelectInstructor(null)}
@@ -58,7 +62,10 @@ export function StaffingPanel({
           <SelectContent>
             {availableInstructors.map((ins) => (
               <SelectItem key={ins.id} value={ins.id}>
-                {ins.name}
+                <span className="flex items-center gap-2">
+                  <InstructorAvatar instructor={ins} size="sm" />
+                  {ins.name}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>

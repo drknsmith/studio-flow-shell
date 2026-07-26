@@ -1,5 +1,6 @@
 import type { Instructor } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { InstructorAvatar } from "@/components/staff/InstructorAvatar";
 
 export function InstructorCard({
   instructor,
@@ -20,12 +21,7 @@ export function InstructorCard({
         active ? "border-primary ring-2 ring-primary/20" : "hover:border-foreground/20",
       )}
     >
-      <div
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-full font-display text-sm font-semibold text-primary-foreground"
-        style={{ background: `oklch(0.42 0.06 ${instructor.avatarColor})` }}
-      >
-        {instructor.initials}
-      </div>
+      <InstructorAvatar instructor={instructor} />
       <div className="min-w-0 flex-1">
         <div className="truncate font-display font-semibold">{instructor.name}</div>
         <div className="truncate text-xs text-muted-foreground">

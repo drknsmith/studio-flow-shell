@@ -25,7 +25,7 @@ export function StatCard({
           className={cn(
             "grid h-8 w-8 place-items-center rounded-lg",
             accent
-              ? "bg-accent/20 text-accent-foreground"
+              ? "bg-accent/20 text-accent"
               : "bg-primary/10 text-primary",
           )}
         >

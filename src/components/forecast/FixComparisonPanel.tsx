@@ -1,4 +1,5 @@
 import { DAY_NAMES_FULL, formatHour, getInstructor } from "@/lib/mock-data";
+import { InstructorAvatar } from "@/components/staff/InstructorAvatar";
 import type {
   ClassTypeToggleOption,
   InstructorToggleOption,
@@ -22,8 +23,10 @@ export function FixComparisonPanel({
   const { target } = recommendation;
   const dayName = DAY_NAMES_FULL[target.dayOfWeek - 1];
   const currentBookingPct = Math.round((target.booked / target.capacity) * 100);
-  const currentInstructorName = getInstructor(target.instructorId)?.name ?? "Unassigned";
-  const proposedInstructorName = getInstructor(instructorOpt.instructorId)?.name ?? "Unassigned";
+  const currentInstructor = getInstructor(target.instructorId);
+  const proposedInstructor = getInstructor(instructorOpt.instructorId);
+  const currentInstructorName = currentInstructor?.name ?? "Unassigned";
+  const proposedInstructorName = proposedInstructor?.name ?? "Unassigned";
 
   const activeDescriptions = [timeOpt.description, instructorOpt.description, classTypeOpt.description].filter(
     (d): d is string => !!d,
@@ -41,7 +44,11 @@ export function FixComparisonPanel({
           <div className="mt-3 space-y-0.5">
             <div className="text-sm font-medium text-foreground">{target.name}</div>
             <div className="text-xs text-muted-foreground">
-              {dayName}s, {formatHour(target.startHour)} · {currentInstructorName}
+              {dayName}s, {formatHour(target.startHour)} ·{" "}
+              <span className="inline-flex items-center gap-1.5">
+                {currentInstructor && <InstructorAvatar instructor={currentInstructor} size="sm" className="inline-grid" />}
+                {currentInstructorName}
+              </span>
             </div>
           </div>
         </div>
@@ -52,7 +59,11 @@ export function FixComparisonPanel({
           <div className="mt-3 space-y-0.5">
             <div className="text-sm font-medium text-foreground">{classTypeOpt.className}</div>
             <div className="text-xs text-muted-foreground">
-              {dayName}s, {formatHour(timeOpt.startHour)} · {proposedInstructorName}
+              {dayName}s, {formatHour(timeOpt.startHour)} ·{" "}
+              <span className="inline-flex items-center gap-1.5">
+                {proposedInstructor && <InstructorAvatar instructor={proposedInstructor} size="sm" className="inline-grid" />}
+                {proposedInstructorName}
+              </span>
             </div>
           </div>
         </div>
