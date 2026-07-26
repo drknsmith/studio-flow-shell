@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Capacity Forecasting & Recommendation Engine (Prototype)
 
-This project was built with [Lovable](https://lovable.dev).
+**Live prototype:** [mindbody-prototype.karlology.com](https://mindbody-prototype.karlology.com/)
 
-## Build with Lovable
+This is a prototype of an enterprise-level workflow for forecasting class capacity and generating AI-driven recommendations for class changes, based on historical booking, attendance, and performance data.
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+The system models two core scenarios: **high-demand sessions** that may need additional seats or trainers, and **underperforming sessions** that may benefit from a schedule change, instructor swap, or class-type replacement. Recommendations are generated using historical patterns (time-of-day attendance trends, instructor performance, class-type fit, and client sentiment) to surface actionable, data-backed suggestions rather than static reports.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+## How this was built
+
+This prototype was assembled using a combination of AI tools, each suited to a different part of the build:
+
+- **[Lovable](https://lovable.dev)** was used to create the mock studio-management portal, styled similarly to platforms like Mindbody, giving the prototype a realistic operational interface to build the forecasting features on top of.
+- **Claude Code** was used to build the core feature set: the forecasting logic, recommendation engine, capacity modeling, and the underlying data structures driving the scenarios.
+- **Cursor** was used for rapid UI iteration and refinement once the base features were in place.
 
 ## Development
 
