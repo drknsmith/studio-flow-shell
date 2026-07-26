@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ForecastSheet } from "@/components/forecast/ForecastSheet";
 import { useForecastSheetOpen, useForecastToast } from "@/hooks/use-forecast";
+import { formatDateShort, getWeekDates } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_app/schedule")({
   head: () => ({
@@ -25,6 +26,8 @@ function SchedulePage() {
   const [view, setView] = useState<"week" | "list">("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const label = weekOffset === 0 ? "This week" : weekOffset > 0 ? `${weekOffset} week ahead` : `${Math.abs(weekOffset)} week back`;
+  const weekDates = getWeekDates(weekOffset);
+  const rangeLabel = `${formatDateShort(weekDates[0])} – ${formatDateShort(weekDates[6])}`;
 
   const { open, setOpen } = useForecastSheetOpen();
   useForecastToast();
@@ -51,13 +54,16 @@ function SchedulePage() {
           <Button variant="outline" size="icon" onClick={() => setWeekOffset((n) => n + 1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <div className="ml-1 font-display text-lg">{label}</div>
+          <div className="ml-1 flex items-baseline gap-2">
+            <span className="font-display text-lg">{label}</span>
+            <span className="text-sm text-muted-foreground">{rangeLabel}</span>
+          </div>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setWeekOffset(0)}>
             Today
           </Button>
         </div>
 
-        {view === "week" ? <ScheduleGrid /> : <ScheduleList />}
+        {view === "week" ? <ScheduleGrid weekOffset={weekOffset} /> : <ScheduleList weekOffset={weekOffset} />}
       </div>
 
       <ForecastSheet open={open} onOpenChange={setOpen} />

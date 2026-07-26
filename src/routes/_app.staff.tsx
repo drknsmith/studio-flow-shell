@@ -9,6 +9,8 @@ import {
   DAY_NAMES,
   formatHour,
   getUpcomingClassesForInstructor,
+  getWeekDates,
+  toDateISO,
 } from "@/lib/mock-data";
 import { Card } from "@/components/ui/card";
 
@@ -29,8 +31,12 @@ function StaffPage() {
   const selected = INSTRUCTORS.find((i) => i.id === selectedId)!;
   const upcoming = getUpcomingClassesForInstructor(selectedId, 6);
 
+  const thisWeekISOs = new Set(getWeekDates(0).map(toDateISO));
   const weeklyCounts = Object.fromEntries(
-    INSTRUCTORS.map((i) => [i.id, CLASSES.filter((c) => c.instructorId === i.id).length]),
+    INSTRUCTORS.map((i) => [
+      i.id,
+      CLASSES.filter((c) => c.instructorId === i.id && thisWeekISOs.has(c.dateISO)).length,
+    ]),
   );
 
   return (

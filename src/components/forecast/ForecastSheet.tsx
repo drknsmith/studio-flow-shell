@@ -74,6 +74,7 @@ export function ForecastSheet({
       name: recommendation.newSession.name,
       category: recommendation.newSession.category,
       instructorId: finalInstructorId,
+      dateISO: recommendation.newSession.dateISO,
       dayOfWeek: recommendation.newSession.dayOfWeek,
       startHour: recommendation.newSession.startHour,
       durationMin: recommendation.newSession.durationMin,

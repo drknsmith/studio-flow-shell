@@ -16,7 +16,9 @@ export type ClassSession = {
   name: string;
   category: ClassCategory;
   instructorId: string;
-  /** ISO day-of-week 1..7 (Mon..Sun) */
+  /** Calendar date this instance runs on, YYYY-MM-DD (local). Source of truth — dayOfWeek is derived from it. */
+  dateISO: string;
+  /** ISO day-of-week 1..7 (Mon..Sun), derived from dateISO. Kept for components that group/label by weekday. */
   dayOfWeek: number;
   /** 24h hour, decimal ok (e.g. 6.5 = 6:30) */
   startHour: number;
@@ -66,7 +68,7 @@ export const INSTRUCTORS: Instructor[] = [
   { id: "i8", name: "Rhea Delaine", initials: "RD", specialties: ["pilates", "meditation"], avatarColor: "180" },
 ];
 
-const CLASS_TEMPLATES: Array<Omit<ClassSession, "id" | "dayOfWeek" | "booked" | "instructorId"> & { instructorPool: string[]; bookRange: [number, number] }> = [
+const CLASS_TEMPLATES: Array<Omit<ClassSession, "id" | "dateISO" | "dayOfWeek" | "booked" | "instructorId"> & { instructorPool: string[]; bookRange: [number, number] }> = [
   { name: "Sunrise Flow", category: "yoga", startHour: 6, durationMin: 60, capacity: 20, price: 28, room: "Studio A", instructorPool: ["i1", "i5"], bookRange: [10, 20] },
   { name: "Power Pilates", category: "pilates", startHour: 7.5, durationMin: 50, capacity: 14, price: 32, room: "Studio B", instructorPool: ["i3", "i8"], bookRange: [8, 14] },
   { name: "HIIT 45", category: "hiit", startHour: 9, durationMin: 45, capacity: 18, price: 30, room: "Studio A", instructorPool: ["i2", "i6"], bookRange: [12, 18] },
@@ -83,34 +85,87 @@ function seeded(n: number) {
   return x - Math.floor(x);
 }
 
+// --- Date helpers -----------------------------------------------------------
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+/** YYYY-MM-DD in local time — avoids the UTC-shift footgun of Date#toISOString(). */
+export function toDateISO(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function addDays(d: Date, n: number): Date {
+  const copy = new Date(d);
+  copy.setDate(copy.getDate() + n);
+  return copy;
+}
+
+function startOfWeek(d: Date): Date {
+  const day = d.getDay(); // Sun=0..Sat=6
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = addDays(d, mondayOffset);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+export function formatDateShort(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Anchor for all generated mock dates — real "today" at module load, fixed for the session. */
+const REFERENCE_WEEK_START = startOfWeek(new Date());
+
+/** Previous, current, and next week — enough real calendar dates for paging back and forward. */
+const GENERATED_WEEK_OFFSETS = [-1, 0, 1];
+
+export function getWeekStart(weekOffset = 0): Date {
+  return addDays(REFERENCE_WEEK_START, weekOffset * 7);
+}
+
+export function getWeekDates(weekOffset = 0): Date[] {
+  const start = getWeekStart(weekOffset);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
 export const CLASSES: ClassSession[] = (() => {
   const out: ClassSession[] = [];
   let id = 0;
-  for (let day = 1; day <= 7; day++) {
-    CLASS_TEMPLATES.forEach((t, i) => {
-      // Sunday: lighter schedule
-      if (day === 7 && (i === 2 || i === 5)) return;
-      id++;
-      const seed = day * 31 + i;
-      const r = seeded(seed);
-      const [lo, hi] = t.bookRange;
-      const booked = Math.min(t.capacity, Math.round(lo + r * (hi - lo)));
-      const instructorId = t.instructorPool[Math.floor(seeded(seed + 7) * t.instructorPool.length)];
-      out.push({
-        id: `c${id}`,
-        name: t.name,
-        category: t.category,
-        instructorId,
-        dayOfWeek: day,
-        startHour: t.startHour,
-        durationMin: t.durationMin,
-        capacity: t.capacity,
-        booked,
-        price: t.price,
-        room: t.room,
+  GENERATED_WEEK_OFFSETS.forEach((weekOffset) => {
+    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+      const date = addDays(REFERENCE_WEEK_START, weekOffset * 7 + dayIdx);
+      const dayOfWeek = dayIdx + 1; // Mon=1..Sun=7
+      const dateISO = toDateISO(date);
+      // Stable per-calendar-date seed component, distinct across the whole generated range
+      // so different weeks' Mondays (etc.) get different random booked counts.
+      const dateSeed = weekOffset * 7 + dayIdx;
+      CLASS_TEMPLATES.forEach((t, i) => {
+        // Sunday: lighter schedule
+        if (dayOfWeek === 7 && (i === 2 || i === 5)) return;
+        id++;
+        const seed = dateSeed * 31 + i;
+        const r = seeded(seed);
+        const [lo, hi] = t.bookRange;
+        const booked = Math.min(t.capacity, Math.round(lo + r * (hi - lo)));
+        const instructorId = t.instructorPool[Math.floor(seeded(seed + 7) * t.instructorPool.length)];
+        out.push({
+          id: `c${id}`,
+          name: t.name,
+          category: t.category,
+          instructorId,
+          dateISO,
+          dayOfWeek,
+          startHour: t.startHour,
+          durationMin: t.durationMin,
+          capacity: t.capacity,
+          booked,
+          price: t.price,
+          room: t.room,
+        });
       });
-    });
-  }
+    }
+  });
   return out;
 })();
 
@@ -173,19 +228,13 @@ export const AVAILABILITY: Record<string, WeeklyAvailability> = (() => {
 
 // --- Selectors ------------------------------------------------------------
 
-export function todayDayOfWeek(): number {
-  // Mon=1..Sun=7
-  const js = new Date().getDay(); // Sun=0
-  return js === 0 ? 7 : js;
-}
-
 export function getTodaysClasses(): ClassSession[] {
-  const d = todayDayOfWeek();
-  return CLASSES.filter(c => c.dayOfWeek === d).sort((a, b) => a.startHour - b.startHour);
+  const todayISO = toDateISO(new Date());
+  return CLASSES.filter(c => c.dateISO === todayISO).sort((a, b) => a.startHour - b.startHour);
 }
 
-export function getClassesForDay(day: number): ClassSession[] {
-  return CLASSES.filter(c => c.dayOfWeek === day).sort((a, b) => a.startHour - b.startHour);
+export function getClassesForDate(dateISO: string): ClassSession[] {
+  return CLASSES.filter(c => c.dateISO === dateISO).sort((a, b) => a.startHour - b.startHour);
 }
 
 export function getInstructor(id: string): Instructor | undefined {
@@ -197,10 +246,10 @@ export function getClientById(id: string): Client | undefined {
 }
 
 export function getUpcomingClassesForInstructor(id: string, limit = 5): ClassSession[] {
-  const today = todayDayOfWeek();
+  const todayISO = toDateISO(new Date());
   return CLASSES
-    .filter(c => c.instructorId === id)
-    .sort((a, b) => (a.dayOfWeek - today + 7) % 7 - (b.dayOfWeek - today + 7) % 7 || a.startHour - b.startHour)
+    .filter(c => c.instructorId === id && c.dateISO >= todayISO)
+    .sort((a, b) => (a.dateISO === b.dateISO ? a.startHour - b.startHour : a.dateISO.localeCompare(b.dateISO)))
     .slice(0, limit);
 }
 
@@ -208,12 +257,20 @@ export function getClassById(id: string): ClassSession | undefined {
   return CLASSES.find(c => c.id === id);
 }
 
-/** The Saturday session with the highest booked/capacity ratio — the forecast target. */
+/** The upcoming Saturday session with the highest booked/capacity ratio — the forecast target.
+ *  Restricted to today-or-later so the recommendation always points at an actionable, single,
+ *  concrete session instance rather than an already-past date or an ambiguous weekday match. */
 export function getForecastTarget(): ClassSession {
-  const saturdayClasses = getClassesForDay(6);
-  return saturdayClasses.reduce((best, c) =>
-    c.booked / c.capacity > best.booked / best.capacity ? c : best,
-  );
+  const todayISO = toDateISO(new Date());
+  const upcoming = CLASSES.filter(c => c.dayOfWeek === 6 && c.dateISO >= todayISO);
+  const pool = upcoming.length > 0 ? upcoming : CLASSES.filter(c => c.dayOfWeek === 6);
+  return pool.reduce((best, c) => {
+    const ratio = c.booked / c.capacity;
+    const bestRatio = best.booked / best.capacity;
+    if (ratio > bestRatio) return c;
+    if (ratio === bestRatio && c.dateISO < best.dateISO) return c;
+    return best;
+  });
 }
 
 // Dashboard KPIs
@@ -232,11 +289,10 @@ export function getTodayStats() {
 }
 
 export function getWeeklyAttendance(): { day: string; bookings: number; capacity: number }[] {
-  const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return names.map((n, i) => {
-    const cs = getClassesForDay(i + 1);
+  return getWeekDates(0).map((date, i) => {
+    const cs = getClassesForDate(toDateISO(date));
     return {
-      day: n,
+      day: DAY_NAMES[i],
       bookings: cs.reduce((s, c) => s + c.booked, 0),
       capacity: cs.reduce((s, c) => s + c.capacity, 0),
     };

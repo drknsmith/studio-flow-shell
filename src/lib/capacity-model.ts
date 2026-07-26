@@ -8,6 +8,7 @@ export interface RecommendedSession {
   name: string;
   category: ClassCategory;
   room: string;
+  dateISO: string;
   dayOfWeek: number;
   startHour: number;
   durationMin: number;
@@ -100,6 +101,7 @@ export function buildRecommendation(session: ClassSession): Recommendation {
     name: session.name,
     category: session.category,
     room: session.room,
+    dateISO: session.dateISO,
     dayOfWeek: session.dayOfWeek,
     startHour: newStartHour,
     durationMin: session.durationMin,
