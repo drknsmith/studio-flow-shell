@@ -1,6 +1,8 @@
 // Central mock data source. Selector functions below hide the shape so Phase 2
 // can swap these for real fetchers without touching UI components.
 
+import { RECOMMENDATION_TARGETS } from "./recommendation-data";
+
 export type ClassCategory = "yoga" | "pilates" | "cycle" | "hiit" | "barre" | "meditation" | "strength";
 
 export type Instructor = {
@@ -96,7 +98,7 @@ export function toDateISO(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-function addDays(d: Date, n: number): Date {
+export function addDays(d: Date, n: number): Date {
   const copy = new Date(d);
   copy.setDate(copy.getDate() + n);
   return copy;
@@ -219,26 +221,27 @@ function nearestAvailabilityHourOf(hour: number): number {
 export const AVAILABILITY: Record<string, WeeklyAvailability> = (() => {
   const out: Record<string, WeeklyAvailability> = {};
 
-  // The forecast recommendation proposes a session one hour after the target (see
-  // buildRecommendation's newStartHour in capacity-model.ts) — guarantee a real staffing
-  // choice by forcing a handful of non-conflicting instructors "available" right there,
+  // Each of the 13 fixed recommendation slots proposes a new session one hour after its
+  // target class (see recommendation-data.ts) — guarantee a real staffing choice at every one
+  // of them by forcing a handful of non-conflicting instructors "available" right there,
   // instead of leaving it to chance whether the random generation happened to clear enough.
-  const target = getForecastTarget();
-  const targetDay = target.dayOfWeek;
-  const targetHour = nearestAvailabilityHourOf(target.startHour + 1);
-  const targetSlotKey = `${targetDay}-${targetHour}`;
-  const busyAtTargetSlot = new Set(
-    CLASSES.filter(c => c.dayOfWeek === targetDay && Math.floor(c.startHour) === targetHour).map(c => c.instructorId),
-  );
-  const eligibleForTargetSlot = INSTRUCTORS.filter(ins => !busyAtTargetSlot.has(ins.id));
-  const forcedAvailableCount = Math.min(eligibleForTargetSlot.length, seeded(4242) > 0.5 ? 4 : 3);
-  const forcedAvailableIds = new Set(
-    eligibleForTargetSlot
-      .map((ins, idx) => ({ id: ins.id, r: seeded(idx * 17 + 501) }))
+  const forcedAvailableBySlot = new Map<string, Set<string>>();
+  RECOMMENDATION_TARGETS.forEach((target, ti) => {
+    const hour = nearestAvailabilityHourOf(target.startHour + 1);
+    const key = `${target.dayOfWeek}-${hour}`;
+    if (forcedAvailableBySlot.has(key)) return; // two slots landed in the same day/hour bucket
+    const busy = new Set(
+      CLASSES.filter(c => c.dayOfWeek === target.dayOfWeek && Math.floor(c.startHour) === hour).map(c => c.instructorId),
+    );
+    const eligible = INSTRUCTORS.filter(ins => !busy.has(ins.id));
+    const forcedCount = Math.min(eligible.length, seeded(4242 + ti) > 0.5 ? 4 : 3);
+    const ids = eligible
+      .map((ins, idx) => ({ id: ins.id, r: seeded(ti * 97 + idx * 17 + 501) }))
       .sort((a, b) => a.r - b.r)
-      .slice(0, forcedAvailableCount)
-      .map(x => x.id),
-  );
+      .slice(0, forcedCount)
+      .map(x => x.id);
+    forcedAvailableBySlot.set(key, new Set(ids));
+  });
 
   INSTRUCTORS.forEach((ins, idx) => {
     const slots: Record<string, AvailabilityStatus> = {};
@@ -246,9 +249,10 @@ export const AVAILABILITY: Record<string, WeeklyAvailability> = (() => {
       for (const hour of AVAILABILITY_HOURS) {
         const key = `${day}-${hour}`;
         const teachesHere = CLASSES.some(c => c.instructorId === ins.id && c.dayOfWeek === day && Math.floor(c.startHour) === hour);
+        const forced = forcedAvailableBySlot.get(key);
         if (teachesHere) {
           slots[key] = "booked";
-        } else if (key === targetSlotKey && forcedAvailableIds.has(ins.id)) {
+        } else if (forced?.has(ins.id)) {
           slots[key] = "available";
         } else {
           const r = seeded(idx * 100 + day * 10 + hour);
@@ -290,22 +294,6 @@ export function getUpcomingClassesForInstructor(id: string, limit = 5): ClassSes
 
 export function getClassById(id: string): ClassSession | undefined {
   return CLASSES.find(c => c.id === id);
-}
-
-/** The upcoming Saturday session with the highest booked/capacity ratio — the forecast target.
- *  Restricted to today-or-later so the recommendation always points at an actionable, single,
- *  concrete session instance rather than an already-past date or an ambiguous weekday match. */
-export function getForecastTarget(): ClassSession {
-  const todayISO = toDateISO(new Date());
-  const upcoming = CLASSES.filter(c => c.dayOfWeek === 6 && c.dateISO >= todayISO);
-  const pool = upcoming.length > 0 ? upcoming : CLASSES.filter(c => c.dayOfWeek === 6);
-  return pool.reduce((best, c) => {
-    const ratio = c.booked / c.capacity;
-    const bestRatio = best.booked / best.capacity;
-    if (ratio > bestRatio) return c;
-    if (ratio === bestRatio && c.dateISO < best.dateISO) return c;
-    return best;
-  });
 }
 
 // Dashboard KPIs

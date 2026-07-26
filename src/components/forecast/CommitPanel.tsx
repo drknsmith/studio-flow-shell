@@ -3,15 +3,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DAY_NAMES_FULL, formatHour, getInstructor } from "@/lib/mock-data";
-import type { RecommendedSession } from "@/lib/capacity-model";
+import type { RecommendedSession } from "@/lib/recommendations";
+import { useIsRecommendationCommitted } from "@/hooks/use-forecast";
 
 export function CommitPanel({
+  recommendationId,
   newSession,
   instructorId,
   adjusted,
   onProceed,
   onReset,
 }: {
+  recommendationId: string;
   newSession: RecommendedSession;
   instructorId: string | null;
   adjusted: boolean;
@@ -22,7 +25,7 @@ export function CommitPanel({
   const timeLabel = formatHour(newSession.startHour);
   const instructor = instructorId ? getInstructor(instructorId) : undefined;
 
-  const [committed, setCommitted] = useState(false);
+  const committed = useIsRecommendationCommitted(recommendationId);
   const [emailSent, setEmailSent] = useState(false);
   const [emailDraft, setEmailDraft] = useState(
     `Hi there,\n\nWe're adding a new ${newSession.name} session on ${dayName}s at ${timeLabel} to open up more spots for this class. Your existing bookings aren't affected — this is simply a new time to choose from.\n\nSee you soon,\nThe studio team`,
@@ -30,7 +33,6 @@ export function CommitPanel({
 
   function handleProceed() {
     onProceed();
-    setCommitted(true);
     toast.success(`${instructor?.name ?? "Instructor"} notified: new class ${dayName}, ${timeLabel}.`);
   }
 

@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { CLASSES, DAY_NAMES, formatHour, formatDateShort, getWeekDates, toDateISO } from "@/lib/mock-data";
-import { useCommittedForecastSession } from "@/hooks/use-forecast";
+import { useCommittedSessions } from "@/hooks/use-forecast";
 import { ClassCard } from "./ClassCard";
 
 const HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 export function ScheduleGrid({ weekOffset = 0 }: { weekOffset?: number }) {
-  const committedSession = useCommittedForecastSession();
+  const committedSessions = useCommittedSessions();
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const weekDateISOs = useMemo(() => weekDates.map(toDateISO), [weekDates]);
 
@@ -38,9 +38,10 @@ export function ScheduleGrid({ weekOffset = 0 }: { weekOffset?: number }) {
               const items = CLASSES.filter(
                 (c) => c.dateISO === dateISO && Math.floor(c.startHour) === h,
               );
-              if (committedSession && committedSession.dateISO === dateISO && Math.floor(committedSession.startHour) === h) {
-                items.push(committedSession);
-              }
+              const committedHere = committedSessions.filter(
+                (c) => c.dateISO === dateISO && Math.floor(c.startHour) === h,
+              );
+              items.push(...committedHere);
               return (
                 <div
                   key={`cell-${dateISO}-${h}`}

@@ -1,4 +1,4 @@
-import type { Recommendation } from "@/lib/capacity-model";
+import type { Recommendation } from "@/lib/recommendations";
 
 export function RecommendationPanel({ recommendation }: { recommendation: Recommendation }) {
   return (

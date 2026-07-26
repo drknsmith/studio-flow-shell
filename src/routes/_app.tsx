@@ -3,6 +3,8 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Toaster } from "@/components/ui/sonner";
+import { RecommendationListSheet } from "@/components/forecast/RecommendationListSheet";
+import { RecommendationDetailSheet } from "@/components/forecast/RecommendationDetailSheet";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -23,6 +25,8 @@ function AppLayout() {
       </div>
       <MobileTabBar />
       <Toaster position="top-right" />
+      <RecommendationListSheet />
+      <RecommendationDetailSheet />
     </SidebarProvider>
   );
 }

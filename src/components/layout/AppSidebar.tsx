@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useForecastSheetOpen, useHasPendingRecommendation } from "@/hooks/use-forecast";
+import { useRecommendationListOpen, useHasPendingRecommendation } from "@/hooks/use-forecast";
 
 const NAV = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -25,7 +25,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const { setOpen } = useForecastSheetOpen();
+  const { setOpen } = useRecommendationListOpen();
   const hasPendingRecommendation = useHasPendingRecommendation();
 
   return (

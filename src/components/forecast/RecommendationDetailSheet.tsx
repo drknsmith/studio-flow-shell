@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,22 +14,48 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { DEFAULT_RECOMMENDATION, computeOutcome, solveSeatsAndPriceForSentiment } from "@/lib/capacity-model";
-import { setCommittedForecastSession } from "@/hooks/use-forecast";
+import { computeOutcome, solveSeatsAndPriceForSentiment } from "@/lib/capacity-model";
+import { DAY_NAMES_FULL } from "@/lib/mock-data";
+import { getRecommendationById, type Recommendation } from "@/lib/recommendations";
+import { commitRecommendation, useSelectedRecommendationId } from "@/hooks/use-forecast";
 import { RecommendationPanel } from "./RecommendationPanel";
 import { LinkedControls } from "./LinkedControls";
 import { RevenuePanel } from "./RevenuePanel";
 import { StaffingPanel, getAvailableInstructors } from "./StaffingPanel";
 import { CommitPanel } from "./CommitPanel";
 
-export function ForecastSheet({
+/** Global detail modal, level two of the notification flow. Wraps the actual content so the
+ *  Dialog/Drawer can still play its close animation after selectedRecommendationId goes back
+ *  to null — the last-known recommendation is kept around just long enough for that. */
+export function RecommendationDetailSheet() {
+  const { id, setId } = useSelectedRecommendationId();
+  const lastRecommendation = useRef<Recommendation | null>(null);
+  if (id) {
+    const found = getRecommendationById(id);
+    if (found) lastRecommendation.current = found;
+  }
+  const recommendation = lastRecommendation.current;
+  if (!recommendation) return null;
+
+  return (
+    <RecommendationDetailContent
+      key={recommendation.id}
+      recommendation={recommendation}
+      open={!!id}
+      onOpenChange={(open) => !open && setId(null)}
+    />
+  );
+}
+
+function RecommendationDetailContent({
+  recommendation,
   open,
   onOpenChange,
 }: {
+  recommendation: Recommendation;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const recommendation = DEFAULT_RECOMMENDATION;
   const availableInstructors = useMemo(
     () => getAvailableInstructors(recommendation.newSession.dayOfWeek, recommendation.newSession.startHour),
     [recommendation],
@@ -69,7 +95,7 @@ export function ForecastSheet({
 
   function handleProceed() {
     const finalInstructorId = instructorId ?? availableInstructors[0]?.id ?? recommendation.target.instructorId;
-    setCommittedForecastSession({
+    commitRecommendation(recommendation.id, {
       id: `forecast-${recommendation.target.id}`,
       name: recommendation.newSession.name,
       category: recommendation.newSession.category,
@@ -92,6 +118,7 @@ export function ForecastSheet({
     capacityPct !== recommendation.defaults.capacityPct;
 
   const isMobile = useIsMobile();
+  const dayName = DAY_NAMES_FULL[recommendation.dayOfWeek - 1];
 
   const sections = (
     <>
@@ -115,6 +142,7 @@ export function ForecastSheet({
         onSelectInstructor={setInstructorId}
       />
       <CommitPanel
+        recommendationId={recommendation.id}
         newSession={recommendation.newSession}
         instructorId={instructorId}
         adjusted={adjusted}
@@ -130,7 +158,7 @@ export function ForecastSheet({
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="text-left">
             <DrawerTitle className="font-display text-lg">Capacity forecast</DrawerTitle>
-            <DrawerDescription>Saturday demand is outpacing supply for this class.</DrawerDescription>
+            <DrawerDescription>{dayName} demand is outpacing supply for {recommendation.target.name}.</DrawerDescription>
           </DrawerHeader>
           <div className="space-y-4 overflow-y-auto px-4 pb-6">{sections}</div>
         </DrawerContent>
@@ -143,7 +171,7 @@ export function ForecastSheet({
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-lg">Capacity forecast</DialogTitle>
-          <DialogDescription>Saturday demand is outpacing supply for this class.</DialogDescription>
+          <DialogDescription>{dayName} demand is outpacing supply for {recommendation.target.name}.</DialogDescription>
         </DialogHeader>
         {sections}
       </DialogContent>

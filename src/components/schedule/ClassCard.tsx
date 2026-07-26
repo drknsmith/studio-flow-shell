@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import type { ClassSession } from "@/lib/mock-data";
 import { formatHour, getInstructor } from "@/lib/mock-data";
-import { isForecastTarget, useForecastSheetOpen } from "@/hooks/use-forecast";
+import { getRecommendationForSession } from "@/lib/recommendations";
+import { useIsRecommendationCommitted, useSelectedRecommendationId } from "@/hooks/use-forecast";
 import { AIFlashBadge } from "@/components/forecast/AIFlashBadge";
 
 const CATEGORY_TINT: Record<string, string> = {
@@ -23,8 +24,10 @@ export function ClassCard({
 }) {
   const instructor = getInstructor(session.instructorId);
   const pct = Math.min(100, Math.round((session.booked / session.capacity) * 100));
-  const { setOpen } = useForecastSheetOpen();
-  const showForecastBadge = isForecastTarget(session.id);
+  const { setId } = useSelectedRecommendationId();
+  const matchedRecommendation = getRecommendationForSession(session);
+  const committed = useIsRecommendationCommitted(matchedRecommendation?.id ?? "");
+  const showForecastBadge = !!matchedRecommendation && !committed;
   return (
     <div
       className={cn(
@@ -32,7 +35,9 @@ export function ClassCard({
         CATEGORY_TINT[session.category] ?? "",
       )}
     >
-      {showForecastBadge && <AIFlashBadge onClick={() => setOpen(true)} />}
+      {showForecastBadge && matchedRecommendation && (
+        <AIFlashBadge onClick={() => setId(matchedRecommendation.id)} />
+      )}
       <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0 truncate font-display text-sm font-semibold">
           {session.name}

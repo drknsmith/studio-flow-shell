@@ -1,55 +1,85 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type { ClassSession } from "@/lib/mock-data";
-import { getForecastTarget } from "@/lib/mock-data";
-import { DEFAULT_RECOMMENDATION } from "@/lib/capacity-model";
+import { getResolvedRecommendations } from "@/lib/recommendations";
 
-// Small module-level stores so the forecast sheet's open state and the committed
-// (in-memory) session are shared across components without prop drilling —
-// structured this way so other pages can plug into the same forecast later.
+// Small module-level stores so notification state (the bell, the schedule-grid badges, the
+// proactive toast, and the list/detail modals) is shared across components without prop
+// drilling. Everything here is plain in-memory state — nothing is written to localStorage,
+// sessionStorage, or any other persistence layer — so a fresh page load always starts clean
+// with no separate reset logic needed.
 
-let isOpen = false;
-const openListeners = new Set<() => void>();
-
-// True until the forecast sheet has been opened at least once this session — drives the
-// sidebar's notification dot so a fresh session surfaces that a recommendation is waiting.
 let hasPendingRecommendation = true;
 const pendingListeners = new Set<() => void>();
-
-function setForecastSheetOpen(open: boolean) {
-  isOpen = open;
-  if (open && hasPendingRecommendation) {
-    hasPendingRecommendation = false;
-    pendingListeners.forEach((l) => l());
-  }
-  openListeners.forEach((l) => l());
-}
-
-function subscribeOpen(listener: () => void) {
-  openListeners.add(listener);
-  return () => openListeners.delete(listener);
-}
-
-export function useForecastSheetOpen() {
-  const open = useSyncExternalStore(subscribeOpen, () => isOpen);
-  return { open, setOpen: setForecastSheetOpen };
-}
 
 function subscribePending(listener: () => void) {
   pendingListeners.add(listener);
   return () => pendingListeners.delete(listener);
 }
 
+/** True until any recommendation has been opened (list or detail) at least once this session. */
 export function useHasPendingRecommendation() {
   return useSyncExternalStore(subscribePending, () => hasPendingRecommendation);
 }
 
-let committedSession: ClassSession | null = null;
+function markSeen() {
+  if (hasPendingRecommendation) {
+    hasPendingRecommendation = false;
+    pendingListeners.forEach(l => l());
+  }
+}
+
+let listOpen = false;
+const listOpenListeners = new Set<() => void>();
+
+function setRecommendationListOpen(open: boolean) {
+  listOpen = open;
+  if (open) markSeen();
+  listOpenListeners.forEach(l => l());
+}
+
+function subscribeListOpen(listener: () => void) {
+  listOpenListeners.add(listener);
+  return () => listOpenListeners.delete(listener);
+}
+
+/** Level one of the notification flow: the bell's collapsed-card list. */
+export function useRecommendationListOpen() {
+  const open = useSyncExternalStore(subscribeListOpen, () => listOpen);
+  return { open, setOpen: setRecommendationListOpen };
+}
+
+let selectedRecommendationId: string | null = null;
+const selectedListeners = new Set<() => void>();
+
+function setSelectedRecommendationId(id: string | null) {
+  selectedRecommendationId = id;
+  if (id) markSeen();
+  selectedListeners.forEach(l => l());
+}
+
+function subscribeSelected(listener: () => void) {
+  selectedListeners.add(listener);
+  return () => selectedListeners.delete(listener);
+}
+
+/** Level two: which single recommendation's full detail view is open, if any. */
+export function useSelectedRecommendationId() {
+  const id = useSyncExternalStore(subscribeSelected, () => selectedRecommendationId);
+  return { id, setId: setSelectedRecommendationId };
+}
+
+const committedSessions = new Map<string, ClassSession>();
+let committedSessionsSnapshot: ClassSession[] = [];
+let committedIdsSnapshot: Set<string> = new Set();
 const committedListeners = new Set<() => void>();
 
-export function setCommittedForecastSession(session: ClassSession) {
-  committedSession = session;
-  committedListeners.forEach((l) => l());
+/** Each recommendation commits independently — you can proceed with several at once. */
+export function commitRecommendation(recommendationId: string, session: ClassSession) {
+  committedSessions.set(recommendationId, session);
+  committedSessionsSnapshot = Array.from(committedSessions.values());
+  committedIdsSnapshot = new Set(committedSessions.keys());
+  committedListeners.forEach(l => l());
 }
 
 function subscribeCommitted(listener: () => void) {
@@ -57,25 +87,34 @@ function subscribeCommitted(listener: () => void) {
   return () => committedListeners.delete(listener);
 }
 
-export function useCommittedForecastSession() {
-  return useSyncExternalStore(subscribeCommitted, () => committedSession);
+/** All committed new sessions, for the Schedule grid to render alongside the generated ones. */
+export function useCommittedSessions(): ClassSession[] {
+  return useSyncExternalStore(subscribeCommitted, () => committedSessionsSnapshot);
 }
 
-export function isForecastTarget(sessionId: string): boolean {
-  return getForecastTarget().id === sessionId;
+export function useIsRecommendationCommitted(recommendationId: string): boolean {
+  const ids = useCommittedRecommendationIds();
+  return ids.has(recommendationId);
 }
 
-/** Fires a proactive toast surfacing the recommendation shortly after mount, with a
- *  "View" action that opens the forecast sheet — not confined to the card badge alone. */
+/** Batch form for list-filtering, so callers don't call a per-item hook inside a loop. */
+export function useCommittedRecommendationIds(): Set<string> {
+  return useSyncExternalStore(subscribeCommitted, () => committedIdsSnapshot);
+}
+
+/** Fires a proactive toast surfacing that recommendations are waiting, with a "View" action
+ *  that opens the notification list — not confined to the bell icon alone. */
 export function useForecastToast(enabled = true, delayMs = 1500) {
   useEffect(() => {
     if (!enabled) return;
     const timer = setTimeout(() => {
-      toast(DEFAULT_RECOMMENDATION.headline, {
-        description: DEFAULT_RECOMMENDATION.pattern,
+      const count = getResolvedRecommendations().length;
+      if (count === 0) return;
+      toast(`${count} capacity recommendation${count === 1 ? "" : "s"} ready to review`, {
+        description: "Classes running close to capacity across the next two weeks.",
         action: {
           label: "View",
-          onClick: () => setForecastSheetOpen(true),
+          onClick: () => setRecommendationListOpen(true),
         },
       });
     }, delayMs);
