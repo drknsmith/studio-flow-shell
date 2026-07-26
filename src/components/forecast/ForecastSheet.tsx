@@ -6,6 +6,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DEFAULT_RECOMMENDATION, computeOutcome, solveSeatsAndPriceForSentiment } from "@/lib/capacity-model";
 import { setCommittedForecastSession } from "@/hooks/use-forecast";
 import { RecommendationPanel } from "./RecommendationPanel";
@@ -77,41 +85,62 @@ export function ForecastSheet({
     sentiment !== recommendation.defaults.sentiment ||
     capacityPct !== recommendation.defaults.capacityPct;
 
+  const isMobile = useIsMobile();
+
+  const sections = (
+    <>
+      <RecommendationPanel recommendation={recommendation} />
+      <LinkedControls
+        seats={seats}
+        price={price}
+        sentiment={sentiment}
+        onSeatsChange={handleSeatsChange}
+        onPriceChange={handlePriceChange}
+        onSentimentChange={handleSentimentChange}
+      />
+      <RevenuePanel
+        projectedRevenue={projectedRevenue}
+        capacityPct={capacityPct}
+        onCapacityPctChange={setCapacityPct}
+      />
+      <StaffingPanel
+        dayOfWeek={recommendation.newSession.dayOfWeek}
+        startHour={recommendation.newSession.startHour}
+        selectedInstructorId={instructorId}
+        onSelectInstructor={setInstructorId}
+      />
+      <CommitPanel
+        newSession={recommendation.newSession}
+        instructorId={instructorId}
+        adjusted={adjusted}
+        onProceed={handleProceed}
+        onReset={handleReset}
+      />
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="font-display text-lg">Capacity forecast</DrawerTitle>
+            <DrawerDescription>Saturday demand is outpacing supply for this class.</DrawerDescription>
+          </DrawerHeader>
+          <div className="space-y-4 overflow-y-auto px-4 pb-6">{sections}</div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-lg">Capacity forecast</DialogTitle>
           <DialogDescription>Saturday demand is outpacing supply for this class.</DialogDescription>
         </DialogHeader>
-
-        <RecommendationPanel recommendation={recommendation} />
-        <LinkedControls
-          seats={seats}
-          price={price}
-          sentiment={sentiment}
-          onSeatsChange={handleSeatsChange}
-          onPriceChange={handlePriceChange}
-          onSentimentChange={handleSentimentChange}
-        />
-        <RevenuePanel
-          projectedRevenue={projectedRevenue}
-          capacityPct={capacityPct}
-          onCapacityPctChange={setCapacityPct}
-        />
-        <StaffingPanel
-          dayOfWeek={recommendation.newSession.dayOfWeek}
-          startHour={recommendation.newSession.startHour}
-          selectedInstructorId={instructorId}
-          onSelectInstructor={setInstructorId}
-        />
-        <CommitPanel
-          newSession={recommendation.newSession}
-          instructorId={instructorId}
-          adjusted={adjusted}
-          onProceed={handleProceed}
-          onReset={handleReset}
-        />
+        {sections}
       </DialogContent>
     </Dialog>
   );
