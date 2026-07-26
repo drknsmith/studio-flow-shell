@@ -9,6 +9,8 @@ import {
 import { DEFAULT_RECOMMENDATION, computeOutcome, solveSeatsAndPriceForSentiment } from "@/lib/capacity-model";
 import { RecommendationPanel } from "./RecommendationPanel";
 import { LinkedControls } from "./LinkedControls";
+import { RevenuePanel } from "./RevenuePanel";
+import { StaffingPanel } from "./StaffingPanel";
 
 export function ForecastSheet({
   open,
@@ -21,6 +23,10 @@ export function ForecastSheet({
   const [seats, setSeats] = useState(recommendation.defaults.seats);
   const [price, setPrice] = useState(recommendation.defaults.price);
   const [sentiment, setSentiment] = useState(recommendation.defaults.sentiment);
+  const [capacityPct, setCapacityPct] = useState(recommendation.defaults.capacityPct);
+  const [instructorId, setInstructorId] = useState<string | null>(null);
+
+  const { projectedRevenue } = computeOutcome({ seats, price, capacityPct });
 
   function handleSeatsChange(value: number) {
     setSeats(value);
@@ -55,6 +61,17 @@ export function ForecastSheet({
           onSeatsChange={handleSeatsChange}
           onPriceChange={handlePriceChange}
           onSentimentChange={handleSentimentChange}
+        />
+        <RevenuePanel
+          projectedRevenue={projectedRevenue}
+          capacityPct={capacityPct}
+          onCapacityPctChange={setCapacityPct}
+        />
+        <StaffingPanel
+          dayOfWeek={recommendation.newSession.dayOfWeek}
+          startHour={recommendation.newSession.startHour}
+          selectedInstructorId={instructorId}
+          onSelectInstructor={setInstructorId}
         />
       </DialogContent>
     </Dialog>

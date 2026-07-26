@@ -21,7 +21,7 @@ export interface Recommendation {
   pattern: string;
   rationale: string;
   newSession: RecommendedSession;
-  defaults: { seats: number; price: number; sentiment: number };
+  defaults: { seats: number; price: number; sentiment: number; capacityPct: number };
 }
 
 export interface OutcomeInput {
@@ -64,7 +64,7 @@ export function sentimentFromSeatsPrice(seats: number, price: number): number {
 }
 
 /** Higher prices thin out the fill rate a little — kept linear and mild since this is a demo. */
-function fillRateFromPrice(price: number): number {
+export function fillRateFromPrice(price: number): number {
   const delta = price - BASELINE_PRICE;
   return clamp(0.92 - delta * 0.01, 0.35, 0.98);
 }
@@ -121,6 +121,7 @@ export function buildRecommendation(session: ClassSession): Recommendation {
       seats: suggestedCapacity,
       price: suggestedPrice,
       sentiment: sentimentFromSeatsPrice(suggestedCapacity, suggestedPrice),
+      capacityPct: Math.round(fillRateFromPrice(suggestedPrice) * 100),
     },
   };
 }
