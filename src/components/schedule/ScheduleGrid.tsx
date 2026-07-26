@@ -1,9 +1,12 @@
 import { CLASSES, DAY_NAMES, formatHour } from "@/lib/mock-data";
+import { useCommittedForecastSession } from "@/hooks/use-forecast";
 import { ClassCard } from "./ClassCard";
 
 const HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 export function ScheduleGrid() {
+  const committedSession = useCommittedForecastSession();
+
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
       <div className="grid min-w-[900px] grid-cols-[64px_repeat(7,minmax(0,1fr))]">
@@ -29,6 +32,9 @@ export function ScheduleGrid() {
               const items = CLASSES.filter(
                 (c) => c.dayOfWeek === day && Math.floor(c.startHour) === h,
               );
+              if (committedSession && committedSession.dayOfWeek === day && Math.floor(committedSession.startHour) === h) {
+                items.push(committedSession);
+              }
               return (
                 <div
                   key={`cell-${day}-${h}`}
