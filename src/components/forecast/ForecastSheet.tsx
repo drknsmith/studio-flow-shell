@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import { setCommittedForecastSession } from "@/hooks/use-forecast";
 import { RecommendationPanel } from "./RecommendationPanel";
 import { LinkedControls } from "./LinkedControls";
 import { RevenuePanel } from "./RevenuePanel";
-import { StaffingPanel } from "./StaffingPanel";
+import { StaffingPanel, getAvailableInstructors } from "./StaffingPanel";
 import { CommitPanel } from "./CommitPanel";
 
 export function ForecastSheet({
@@ -30,11 +30,16 @@ export function ForecastSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const recommendation = DEFAULT_RECOMMENDATION;
+  const availableInstructors = useMemo(
+    () => getAvailableInstructors(recommendation.newSession.dayOfWeek, recommendation.newSession.startHour),
+    [recommendation],
+  );
+
   const [seats, setSeats] = useState(recommendation.defaults.seats);
   const [price, setPrice] = useState(recommendation.defaults.price);
   const [sentiment, setSentiment] = useState(recommendation.defaults.sentiment);
   const [capacityPct, setCapacityPct] = useState(recommendation.defaults.capacityPct);
-  const [instructorId, setInstructorId] = useState<string | null>(null);
+  const [instructorId, setInstructorId] = useState<string | null>(availableInstructors[0]?.id ?? null);
 
   const { projectedRevenue } = computeOutcome({ seats, price, capacityPct });
 
@@ -63,7 +68,7 @@ export function ForecastSheet({
   }
 
   function handleProceed() {
-    const finalInstructorId = instructorId ?? recommendation.target.instructorId;
+    const finalInstructorId = instructorId ?? availableInstructors[0]?.id ?? recommendation.target.instructorId;
     setCommittedForecastSession({
       id: `forecast-${recommendation.target.id}`,
       name: recommendation.newSession.name,
@@ -104,8 +109,7 @@ export function ForecastSheet({
         onCapacityPctChange={setCapacityPct}
       />
       <StaffingPanel
-        dayOfWeek={recommendation.newSession.dayOfWeek}
-        startHour={recommendation.newSession.startHour}
+        availableInstructors={availableInstructors}
         selectedInstructorId={instructorId}
         onSelectInstructor={setInstructorId}
       />

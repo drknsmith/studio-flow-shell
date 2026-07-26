@@ -1,32 +1,29 @@
-import { useMemo } from "react";
+import { AVAILABILITY, INSTRUCTORS, getInstructor, type Instructor } from "@/lib/mock-data";
 import { X } from "lucide-react";
-import { AVAILABILITY, INSTRUCTORS, getInstructor } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 
 // AVAILABILITY only has entries for these even hours (see AvailabilityGrid.tsx) —
 // snap the recommended slot to the nearest one before looking it up.
 const AVAILABILITY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20];
 
-function nearestAvailabilityHour(hour: number): number {
+export function nearestAvailabilityHour(hour: number): number {
   return AVAILABILITY_HOURS.reduce((best, h) => (Math.abs(h - hour) < Math.abs(best - hour) ? h : best));
 }
 
+export function getAvailableInstructors(dayOfWeek: number, startHour: number): Instructor[] {
+  const slotKey = `${dayOfWeek}-${nearestAvailabilityHour(startHour)}`;
+  return INSTRUCTORS.filter((ins) => AVAILABILITY[ins.id]?.slots[slotKey] === "available");
+}
+
 export function StaffingPanel({
-  dayOfWeek,
-  startHour,
+  availableInstructors,
   selectedInstructorId,
   onSelectInstructor,
 }: {
-  dayOfWeek: number;
-  startHour: number;
+  availableInstructors: Instructor[];
   selectedInstructorId: string | null;
   onSelectInstructor: (id: string | null) => void;
 }) {
-  const availableInstructors = useMemo(() => {
-    const slotKey = `${dayOfWeek}-${nearestAvailabilityHour(startHour)}`;
-    return INSTRUCTORS.filter((ins) => AVAILABILITY[ins.id]?.slots[slotKey] === "available");
-  }, [dayOfWeek, startHour]);
-
   const selected = selectedInstructorId ? getInstructor(selectedInstructorId) : undefined;
 
   return (
