@@ -2,6 +2,7 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -21,6 +22,7 @@ function AppLayout() {
         </SidebarInset>
       </div>
       <MobileTabBar />
+      <Toaster position="top-right" />
     </SidebarProvider>
   );
 }

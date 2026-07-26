@@ -6,6 +6,8 @@ import { ScheduleGrid } from "@/components/schedule/ScheduleGrid";
 import { ScheduleList } from "@/components/schedule/ScheduleList";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ForecastSheet } from "@/components/forecast/ForecastSheet";
+import { useForecastSheetOpen, useForecastToast } from "@/hooks/use-forecast";
 
 export const Route = createFileRoute("/_app/schedule")({
   head: () => ({
@@ -23,6 +25,9 @@ function SchedulePage() {
   const [view, setView] = useState<"week" | "list">("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const label = weekOffset === 0 ? "This week" : weekOffset > 0 ? `${weekOffset} week ahead` : `${Math.abs(weekOffset)} week back`;
+
+  const { open, setOpen } = useForecastSheetOpen();
+  useForecastToast();
 
   return (
     <>
@@ -54,6 +59,8 @@ function SchedulePage() {
 
         {view === "week" ? <ScheduleGrid /> : <ScheduleList />}
       </div>
+
+      <ForecastSheet open={open} onOpenChange={setOpen} />
     </>
   );
 }

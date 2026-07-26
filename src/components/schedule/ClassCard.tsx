@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 import type { ClassSession } from "@/lib/mock-data";
 import { formatHour, getInstructor } from "@/lib/mock-data";
+import { isForecastTarget, useForecastSheetOpen } from "@/hooks/use-forecast";
+import { AIFlashBadge } from "@/components/forecast/AIFlashBadge";
 
 const CATEGORY_TINT: Record<string, string> = {
   yoga: "border-l-[color:var(--chart-1)] bg-[color:var(--chart-1)]/6",
@@ -21,13 +23,16 @@ export function ClassCard({
 }) {
   const instructor = getInstructor(session.instructorId);
   const pct = Math.min(100, Math.round((session.booked / session.capacity) * 100));
+  const { setOpen } = useForecastSheetOpen();
+  const showForecastBadge = isForecastTarget(session.id);
   return (
     <div
       className={cn(
-        "group rounded-lg border border-border border-l-4 p-2.5 transition-colors hover:bg-muted/60",
+        "group relative rounded-lg border border-border border-l-4 p-2.5 transition-colors hover:bg-muted/60",
         CATEGORY_TINT[session.category] ?? "",
       )}
     >
+      {showForecastBadge && <AIFlashBadge onClick={() => setOpen(true)} />}
       <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0 truncate font-display text-sm font-semibold">
           {session.name}
