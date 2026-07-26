@@ -1,6 +1,12 @@
 import { AVAILABILITY, INSTRUCTORS, getInstructor, type Instructor } from "@/lib/mock-data";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // AVAILABILITY only has entries for these even hours (see AvailabilityGrid.tsx) —
 // snap the recommended slot to the nearest one before looking it up.
@@ -45,13 +51,18 @@ export function StaffingPanel({
       ) : availableInstructors.length === 0 ? (
         <p className="text-sm text-muted-foreground">No instructors available at this time.</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {availableInstructors.map((ins) => (
-            <Button key={ins.id} variant="outline" size="sm" onClick={() => onSelectInstructor(ins.id)}>
-              + {ins.name}
-            </Button>
-          ))}
-        </div>
+        <Select onValueChange={(id) => onSelectInstructor(id)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choose an instructor" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableInstructors.map((ins) => (
+              <SelectItem key={ins.id} value={ins.id}>
+                {ins.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     </div>
   );

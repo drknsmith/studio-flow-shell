@@ -210,15 +210,50 @@ export const CLIENTS: Client[] = (() => {
   });
 })();
 
+const AVAILABILITY_HOURS = [6, 8, 10, 12, 14, 16, 18, 20];
+
+function nearestAvailabilityHourOf(hour: number): number {
+  return AVAILABILITY_HOURS.reduce((best, h) => (Math.abs(h - hour) < Math.abs(best - hour) ? h : best));
+}
+
 export const AVAILABILITY: Record<string, WeeklyAvailability> = (() => {
   const out: Record<string, WeeklyAvailability> = {};
+
+  // The forecast recommendation proposes a session one hour after the target (see
+  // buildRecommendation's newStartHour in capacity-model.ts) — guarantee a real staffing
+  // choice by forcing a handful of non-conflicting instructors "available" right there,
+  // instead of leaving it to chance whether the random generation happened to clear enough.
+  const target = getForecastTarget();
+  const targetDay = target.dayOfWeek;
+  const targetHour = nearestAvailabilityHourOf(target.startHour + 1);
+  const targetSlotKey = `${targetDay}-${targetHour}`;
+  const busyAtTargetSlot = new Set(
+    CLASSES.filter(c => c.dayOfWeek === targetDay && Math.floor(c.startHour) === targetHour).map(c => c.instructorId),
+  );
+  const eligibleForTargetSlot = INSTRUCTORS.filter(ins => !busyAtTargetSlot.has(ins.id));
+  const forcedAvailableCount = Math.min(eligibleForTargetSlot.length, seeded(4242) > 0.5 ? 4 : 3);
+  const forcedAvailableIds = new Set(
+    eligibleForTargetSlot
+      .map((ins, idx) => ({ id: ins.id, r: seeded(idx * 17 + 501) }))
+      .sort((a, b) => a.r - b.r)
+      .slice(0, forcedAvailableCount)
+      .map(x => x.id),
+  );
+
   INSTRUCTORS.forEach((ins, idx) => {
     const slots: Record<string, AvailabilityStatus> = {};
     for (let day = 1; day <= 7; day++) {
-      for (const hour of [6, 8, 10, 12, 14, 16, 18, 20]) {
+      for (const hour of AVAILABILITY_HOURS) {
+        const key = `${day}-${hour}`;
         const teachesHere = CLASSES.some(c => c.instructorId === ins.id && c.dayOfWeek === day && Math.floor(c.startHour) === hour);
-        const r = seeded(idx * 100 + day * 10 + hour);
-        slots[`${day}-${hour}`] = teachesHere ? "booked" : r > 0.7 ? "unavailable" : "available";
+        if (teachesHere) {
+          slots[key] = "booked";
+        } else if (key === targetSlotKey && forcedAvailableIds.has(ins.id)) {
+          slots[key] = "available";
+        } else {
+          const r = seeded(idx * 100 + day * 10 + hour);
+          slots[key] = r > 0.7 ? "unavailable" : "available";
+        }
       }
     }
     out[ins.id] = { slots };
