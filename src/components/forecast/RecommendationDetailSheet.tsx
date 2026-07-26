@@ -31,6 +31,11 @@ import { CommitPanel } from "./CommitPanel";
 import { UnderperformingPanel } from "./UnderperformingPanel";
 import { FixComparisonPanel } from "./FixComparisonPanel";
 import { UnderperformingCommitPanel } from "./UnderperformingCommitPanel";
+import { UnderperformingLinkedControls } from "./UnderperformingLinkedControls";
+
+function clamp0to100(n: number): number {
+  return Math.min(100, Math.max(0, n));
+}
 
 /** Global detail modal, level two of the notification flow. Wraps the actual content so the
  *  Dialog/Drawer can still play its close animation after selectedRecommendationId goes back
@@ -209,14 +214,80 @@ function UnderperformingDetailContent({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { toggles } = recommendation;
+
+  const [timeId, setTimeId] = useState(toggles.defaultTimeId);
+  const [instructorId, setInstructorId] = useState(toggles.defaultInstructorId);
+  const [classTypeId, setClassTypeId] = useState(toggles.defaultClassTypeId);
+
+  const timeOpt = toggles.time.find(o => o.id === timeId) ?? toggles.time[0];
+  const instructorOpt = toggles.instructor.find(o => o.id === instructorId) ?? toggles.instructor[0];
+  const classTypeOpt = toggles.classType.find(o => o.id === classTypeId) ?? toggles.classType[0];
+
+  function computeSentiment(tId: string, iId: string, cId: string) {
+    const t = toggles.time.find(o => o.id === tId) ?? toggles.time[0];
+    const i = toggles.instructor.find(o => o.id === iId) ?? toggles.instructor[0];
+    const c = toggles.classType.find(o => o.id === cId) ?? toggles.classType[0];
+    return clamp0to100(recommendation.sentimentContext + t.sentimentDelta + i.sentimentDelta + c.sentimentDelta);
+  }
+
+  const [sentiment, setSentiment] = useState(() => computeSentiment(timeId, instructorId, classTypeId));
+
+  function handleTimeChange(id: string) {
+    const opt = toggles.time.find(o => o.id === id);
+    const nextInstructorId = opt?.impliedInstructorId ?? instructorId;
+    setTimeId(id);
+    setInstructorId(nextInstructorId);
+    setSentiment(computeSentiment(id, nextInstructorId, classTypeId));
+  }
+
+  function handleInstructorChange(id: string) {
+    setInstructorId(id);
+    setSentiment(computeSentiment(timeId, id, classTypeId));
+  }
+
+  function handleClassTypeChange(id: string) {
+    setClassTypeId(id);
+    setSentiment(computeSentiment(timeId, instructorId, id));
+  }
+
+  const baselineSentiment = computeSentiment(timeId, instructorId, classTypeId);
+  const currentBookingPct = Math.round((recommendation.target.booked / recommendation.target.capacity) * 100);
+  const proposedBookingPct = clamp0to100(
+    currentBookingPct + timeOpt.bookingPctDelta + instructorOpt.bookingPctDelta + classTypeOpt.bookingPctDelta,
+  );
+
   const isMobile = useIsMobile();
   const dayName = DAY_NAMES_FULL[recommendation.dayOfWeek - 1];
 
   const sections = (
     <>
       <UnderperformingPanel recommendation={recommendation} />
-      <FixComparisonPanel recommendation={recommendation} />
-      <UnderperformingCommitPanel recommendation={recommendation} />
+      <UnderperformingLinkedControls
+        toggles={toggles}
+        selectedTimeId={timeId}
+        selectedInstructorId={instructorId}
+        selectedClassTypeId={classTypeId}
+        sentiment={sentiment}
+        baselineSentiment={baselineSentiment}
+        onTimeChange={handleTimeChange}
+        onInstructorChange={handleInstructorChange}
+        onClassTypeChange={handleClassTypeChange}
+        onSentimentChange={setSentiment}
+      />
+      <FixComparisonPanel
+        recommendation={recommendation}
+        timeOpt={timeOpt}
+        instructorOpt={instructorOpt}
+        classTypeOpt={classTypeOpt}
+        proposedBookingPct={proposedBookingPct}
+      />
+      <UnderperformingCommitPanel
+        recommendation={recommendation}
+        timeOpt={timeOpt}
+        instructorOpt={instructorOpt}
+        classTypeOpt={classTypeOpt}
+      />
     </>
   );
 

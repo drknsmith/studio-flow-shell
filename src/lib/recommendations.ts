@@ -8,11 +8,13 @@ import {
   UNDERPERFORMING_SLOTS,
   type RecommendationSlotDef,
   type UnderperformingSlotDef,
-  type UnderperformingProposal,
-  type FixType,
+  type UnderperformingToggles,
+  type TimeToggleOption,
+  type InstructorToggleOption,
+  type ClassTypeToggleOption,
 } from "./recommendation-data";
 
-export type { FixType, UnderperformingProposal };
+export type { UnderperformingToggles, TimeToggleOption, InstructorToggleOption, ClassTypeToggleOption };
 
 export interface RecommendedSession {
   name: string;
@@ -60,8 +62,7 @@ export interface AddCapacityRecommendation extends ResolvedBase {
 
 export interface UnderperformingRecommendation extends ResolvedBase {
   kind: "underperforming";
-  fixType: FixType;
-  proposal: UnderperformingProposal;
+  toggles: UnderperformingToggles;
   sentimentContext: number;
 }
 
@@ -106,8 +107,7 @@ function resolveUnderperformingSlot(slot: UnderperformingSlotDef): Underperformi
     headline: slot.headline,
     pattern: slot.pattern,
     rationale: slot.rationale,
-    fixType: slot.fixType,
-    proposal: slot.proposal,
+    toggles: slot.toggles,
     sentimentContext: slot.sentimentContext,
     target: resolveTarget(slot, dateISO),
   };

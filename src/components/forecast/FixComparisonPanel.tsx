@@ -1,26 +1,33 @@
 import { DAY_NAMES_FULL, formatHour, getInstructor } from "@/lib/mock-data";
-import type { UnderperformingRecommendation } from "@/lib/recommendations";
+import type {
+  ClassTypeToggleOption,
+  InstructorToggleOption,
+  TimeToggleOption,
+  UnderperformingRecommendation,
+} from "@/lib/recommendations";
 
-const FIX_LABEL: Record<UnderperformingRecommendation["fixType"], string> = {
-  time: "New time",
-  instructor: "New instructor",
-  classType: "New format",
-};
+export function FixComparisonPanel({
+  recommendation,
+  timeOpt,
+  instructorOpt,
+  classTypeOpt,
+  proposedBookingPct,
+}: {
+  recommendation: UnderperformingRecommendation;
+  timeOpt: TimeToggleOption;
+  instructorOpt: InstructorToggleOption;
+  classTypeOpt: ClassTypeToggleOption;
+  proposedBookingPct: number;
+}) {
+  const { target } = recommendation;
+  const dayName = DAY_NAMES_FULL[target.dayOfWeek - 1];
+  const currentBookingPct = Math.round((target.booked / target.capacity) * 100);
+  const currentInstructorName = getInstructor(target.instructorId)?.name ?? "Unassigned";
+  const proposedInstructorName = getInstructor(instructorOpt.instructorId)?.name ?? "Unassigned";
 
-function currentDetailLine(rec: UnderperformingRecommendation): string {
-  const dayName = DAY_NAMES_FULL[rec.target.dayOfWeek - 1];
-  switch (rec.fixType) {
-    case "time":
-      return `${dayName}s, ${formatHour(rec.target.startHour)}`;
-    case "instructor":
-      return getInstructor(rec.target.instructorId)?.name ?? "Unassigned";
-    case "classType":
-      return rec.target.name;
-  }
-}
-
-export function FixComparisonPanel({ recommendation }: { recommendation: UnderperformingRecommendation }) {
-  const currentPct = Math.round((recommendation.target.booked / recommendation.target.capacity) * 100);
+  const activeDescriptions = [timeOpt.description, instructorOpt.description, classTypeOpt.description].filter(
+    (d): d is string => !!d,
+  );
 
   return (
     <div className="space-y-3">
@@ -29,31 +36,36 @@ export function FixComparisonPanel({ recommendation }: { recommendation: Underpe
           <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             Current
           </div>
-          <div className="num mt-1 font-display text-3xl font-semibold text-destructive">{currentPct}%</div>
+          <div className="num mt-1 font-display text-3xl font-semibold text-destructive">{currentBookingPct}%</div>
           <div className="text-xs text-muted-foreground">average booked</div>
-          <div className="mt-3 text-sm font-medium text-foreground">{currentDetailLine(recommendation)}</div>
+          <div className="mt-3 space-y-0.5">
+            <div className="text-sm font-medium text-foreground">{target.name}</div>
+            <div className="text-xs text-muted-foreground">
+              {dayName}s, {formatHour(target.startHour)} · {currentInstructorName}
+            </div>
+          </div>
         </div>
         <div className="rounded-xl border border-success/40 bg-success/10 p-4">
-          <div className="text-[11px] font-semibold uppercase tracking-widest text-success">
-            {FIX_LABEL[recommendation.fixType]}
+          <div className="text-[11px] font-semibold uppercase tracking-widest text-success">This plan</div>
+          <div className="num mt-1 font-display text-3xl font-semibold text-success">{proposedBookingPct}%</div>
+          <div className="text-xs text-muted-foreground">projected booked</div>
+          <div className="mt-3 space-y-0.5">
+            <div className="text-sm font-medium text-foreground">{classTypeOpt.className}</div>
+            <div className="text-xs text-muted-foreground">
+              {dayName}s, {formatHour(timeOpt.startHour)} · {proposedInstructorName}
+            </div>
           </div>
-          <div className="num mt-1 font-display text-3xl font-semibold text-success">
-            {recommendation.proposal.projectedBookingPct}%
-          </div>
-          <div className="text-xs text-muted-foreground">typical booked</div>
-          <div className="mt-3 text-sm font-medium text-foreground">{recommendation.proposal.label}</div>
         </div>
       </div>
-      <p className="text-sm text-muted-foreground">{recommendation.proposal.description}</p>
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="mb-2 flex items-baseline justify-between text-sm">
-          <span className="font-medium text-foreground">Client sentiment (current)</span>
-          <span className="num text-muted-foreground">{recommendation.sentimentContext}</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div className="h-full bg-primary" style={{ width: `${recommendation.sentimentContext}%` }} />
-        </div>
-      </div>
+      {activeDescriptions.length > 0 ? (
+        <ul className="space-y-1 text-sm text-muted-foreground">
+          {activeDescriptions.map((d) => (
+            <li key={d}>• {d}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">No changes selected yet — booking is projected to stay flat.</p>
+      )}
     </div>
   );
 }

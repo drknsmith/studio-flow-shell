@@ -207,38 +207,64 @@ export const RECOMMENDATION_SLOTS: RecommendationSlotDef[] = [
 export const RECOMMENDATION_TARGETS: RecommendationTargetInfo[] = RECOMMENDATION_SLOTS.map(s => s.target);
 
 // --- Underperforming-class scenarios ---------------------------------------
-// The inverse workflow: a session booking under 50% gets one pre-assigned fix — move its
-// time, swap its instructor, or swap the class format entirely. Never user-toggleable between
-// fix types; each slot's diagnosis is fixed, authored content, same as the add-capacity slots.
+// The inverse workflow: a session booking under 50% gets three independent, toggleable levers
+// — time, instructor, class type — each with a small fixed set of pre-authored alternatives.
+// Every option carries small hardcoded deltas (not a live elasticity model) so picking a
+// combination plausibly shifts sentiment and projected booking together, the same way the
+// add-capacity flow's seats/price/sentiment sliders cross-update each other. Each scenario's
+// "current" options (id "current") reproduce today's situation with zero deltas; exactly one
+// category defaults to its alternate — that's the scenario's pre-assigned primary fix.
 
-export type FixType = "time" | "instructor" | "classType";
-
-export interface UnderperformingProposal {
-  /** Short label for the proposed alternative, e.g. "6:30pm, Tuesdays" / "Theo Bishop" / "Restorative Flow". */
+export interface TimeToggleOption {
+  id: string;
   label: string;
-  /** Supporting comparative-performance reason for this specific proposal. */
-  description: string;
-  /** Typical booking rate for the proposed alternative, 0-100. */
-  projectedBookingPct: number;
-  newDayOfWeek?: number;
-  newStartHour?: number;
-  newInstructorId?: string;
-  newClassName?: string;
-  newCategory?: ClassCategory;
-  newCapacity?: number;
-  newPrice?: number;
+  startHour: number;
+  sentimentDelta: number;
+  bookingPctDelta: number;
+  description?: string;
+  /** Selecting this time option also snaps the instructor toggle to this option id — e.g.
+   *  moving into a slot the current trainer already works removes the need to swap instructor. */
+  impliedInstructorId?: string;
+}
+
+export interface InstructorToggleOption {
+  id: string;
+  instructorId: string;
+  label: string;
+  sentimentDelta: number;
+  bookingPctDelta: number;
+  description?: string;
+}
+
+export interface ClassTypeToggleOption {
+  id: string;
+  className: string;
+  category: ClassCategory;
+  capacity: number;
+  price: number;
+  sentimentDelta: number;
+  bookingPctDelta: number;
+  description?: string;
+}
+
+export interface UnderperformingToggles {
+  time: TimeToggleOption[];
+  instructor: InstructorToggleOption[];
+  classType: ClassTypeToggleOption[];
+  defaultTimeId: string;
+  defaultInstructorId: string;
+  defaultClassTypeId: string;
 }
 
 export interface UnderperformingSlotDef {
   id: string;
   week: SlotWeek;
   target: RecommendationTargetInfo;
-  fixType: FixType;
   headline: string;
   pattern: string;
   rationale: string;
-  proposal: UnderperformingProposal;
-  /** Contextual client-sentiment reading for the current session — supporting info, not a lever. */
+  toggles: UnderperformingToggles;
+  /** Baseline client-sentiment reading before any toggle is applied — supporting info, not a lever on its own. */
   sentimentContext: number;
 }
 
@@ -248,18 +274,25 @@ export const UNDERPERFORMING_SLOTS: UnderperformingSlotDef[] = [
     id: "underperf-tue-6am-w0",
     week: "this",
     target: { name: "Sunrise Flow", category: "yoga", room: "Studio A", dayOfWeek: 2, startHour: 6, durationMin: 60, capacity: 20, booked: 7, price: 28, instructorId: "i5" },
-    fixType: "time",
     headline: "Move Sunrise Flow from 6am to 6:30pm on Tuesdays",
     pattern: "Under 40% booked in 6 of the last 8 Tuesdays",
     rationale: "Tuesday's 6am Sunrise Flow struggles to fill — early risers skip Tuesdays more than any other weekday, but evening yoga on Tuesdays consistently books out elsewhere on the schedule. Moving this session to 6:30pm keeps the same room and instructor, no new slot required.",
-    proposal: {
-      label: "6:30pm, Tuesdays",
-      description: "Evening yoga sessions this week are averaging 78% booked — a like-for-like slot swap, not a new class.",
-      projectedBookingPct: 78,
-      newDayOfWeek: 2,
-      newStartHour: 18.5,
-      newCapacity: 20,
-      newPrice: 28,
+    toggles: {
+      time: [
+        { id: "current", label: "6am, Tuesdays", startHour: 6, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "evening", label: "6:30pm, Tuesdays", startHour: 18.5, sentimentDelta: 18, bookingPctDelta: 43, description: "Evening yoga sessions this week are averaging 78% booked — a like-for-like slot swap, not a new class.", impliedInstructorId: "current" },
+      ],
+      instructor: [
+        { id: "current", instructorId: "i5", label: "Theo Bishop", sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "swap", instructorId: "i1", label: "Nora Alderman", sentimentDelta: 6, bookingPctDelta: 5, description: "Nora Alderman's yoga sessions elsewhere run slightly ahead on client satisfaction." },
+      ],
+      classType: [
+        { id: "current", className: "Sunrise Flow", category: "yoga", capacity: 20, price: 28, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "alt", className: "Power Vinyasa", category: "yoga", capacity: 18, price: 30, sentimentDelta: 4, bookingPctDelta: 10, description: "Power Vinyasa formats trend a little stronger than gentle flow in standalone slots." },
+      ],
+      defaultTimeId: "evening",
+      defaultInstructorId: "current",
+      defaultClassTypeId: "current",
     },
     sentimentContext: 54,
   },
@@ -267,15 +300,25 @@ export const UNDERPERFORMING_SLOTS: UnderperformingSlotDef[] = [
     id: "underperf-wed-12pm-w0",
     week: "this",
     target: { name: "Barre Sculpt", category: "barre", room: "Studio B", dayOfWeek: 3, startHour: 12, durationMin: 55, capacity: 16, booked: 7, price: 30, instructorId: "i3" },
-    fixType: "instructor",
     headline: "Swap Wednesday's Barre Sculpt instructor to Theo Bishop",
     pattern: "Under 50% booked in 5 of the last 8 Wednesdays",
     rationale: "Priya Ranjan's Wednesday midday Barre Sculpt has been running under capacity while Theo Bishop's Barre Sculpt sessions elsewhere on the schedule average well above 80%. Same slot, same room — just a different instructor at the front of the room.",
-    proposal: {
-      label: "Theo Bishop",
-      description: "Theo Bishop's other Barre Sculpt sessions this week are averaging 83% booked.",
-      projectedBookingPct: 83,
-      newInstructorId: "i5",
+    toggles: {
+      time: [
+        { id: "current", label: "12pm, Wednesdays", startHour: 12, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "evening", label: "5pm, Wednesdays", startHour: 17, sentimentDelta: 5, bookingPctDelta: 12, description: "Wednesday's 5pm slot already runs hot for other formats." },
+      ],
+      instructor: [
+        { id: "current", instructorId: "i3", label: "Priya Ranjan", sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "swap", instructorId: "i5", label: "Theo Bishop", sentimentDelta: 15, bookingPctDelta: 39, description: "Theo Bishop's other Barre Sculpt sessions this week are averaging 83% booked." },
+      ],
+      classType: [
+        { id: "current", className: "Barre Sculpt", category: "barre", capacity: 16, price: 30, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "alt", className: "Power Barre", category: "barre", capacity: 14, price: 32, sentimentDelta: 3, bookingPctDelta: 8, description: "Power Barre formats have tested well in similar midday slots." },
+      ],
+      defaultTimeId: "current",
+      defaultInstructorId: "swap",
+      defaultClassTypeId: "current",
     },
     sentimentContext: 61,
   },
@@ -283,18 +326,25 @@ export const UNDERPERFORMING_SLOTS: UnderperformingSlotDef[] = [
     id: "underperf-fri-8pm-w0",
     week: "this",
     target: { name: "Stillness", category: "meditation", room: "Studio C", dayOfWeek: 5, startHour: 20, durationMin: 30, capacity: 20, booked: 6, price: 18, instructorId: "i1" },
-    fixType: "classType",
     headline: "Replace Friday's Stillness with Restorative Flow",
     pattern: "Under 35% booked in 6 of the last 8 Fridays",
     rationale: "Late Friday meditation is the softest booking slot on the schedule — clients want to physically unwind after the week, not sit still. A gentler, movement-based Restorative Flow in the same slot has historically outperformed pure meditation on Friday nights.",
-    proposal: {
-      label: "Restorative Flow",
-      description: "Restorative-style formats in comparable Friday evening slots average 72% booked, more than double Stillness's current rate.",
-      projectedBookingPct: 72,
-      newClassName: "Restorative Flow",
-      newCategory: "yoga",
-      newCapacity: 18,
-      newPrice: 22,
+    toggles: {
+      time: [
+        { id: "current", label: "8pm, Fridays", startHour: 20, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "earlier", label: "6:30pm, Fridays", startHour: 18.5, sentimentDelta: 6, bookingPctDelta: 15, description: "An earlier Friday slot catches clients before after-work energy fades." },
+      ],
+      instructor: [
+        { id: "current", instructorId: "i1", label: "Nora Alderman", sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "swap", instructorId: "i8", label: "Rhea Delaine", sentimentDelta: 4, bookingPctDelta: 5, description: "Rhea Delaine's meditation sessions elsewhere run slightly fuller." },
+      ],
+      classType: [
+        { id: "current", className: "Stillness", category: "meditation", capacity: 20, price: 18, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "restorative", className: "Restorative Flow", category: "yoga", capacity: 18, price: 22, sentimentDelta: 20, bookingPctDelta: 42, description: "Restorative-style formats in comparable Friday evening slots average 72% booked, more than double Stillness's current rate." },
+      ],
+      defaultTimeId: "current",
+      defaultInstructorId: "current",
+      defaultClassTypeId: "restorative",
     },
     sentimentContext: 47,
   },
@@ -303,18 +353,25 @@ export const UNDERPERFORMING_SLOTS: UnderperformingSlotDef[] = [
     id: "underperf-sun-12pm-w1",
     week: "next",
     target: { name: "Barre Sculpt", category: "barre", room: "Studio B", dayOfWeek: 7, startHour: 12, durationMin: 55, capacity: 16, booked: 6, price: 30, instructorId: "i3" },
-    fixType: "time",
     headline: "Move Sunday's Barre Sculpt from 12pm to 10am",
     pattern: "Under 45% booked in 5 of the last 8 Sundays",
     rationale: "Sunday midday competes with brunch and family plans — the slowest booking window of the weekend. Late-morning Sunday classes consistently outperform midday ones across the studio, without touching the room or instructor.",
-    proposal: {
-      label: "10am, Sundays",
-      description: "Late-morning Sunday sessions are averaging 74% booked this month.",
-      projectedBookingPct: 74,
-      newDayOfWeek: 7,
-      newStartHour: 10,
-      newCapacity: 16,
-      newPrice: 30,
+    toggles: {
+      time: [
+        { id: "current", label: "12pm, Sundays", startHour: 12, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "morning", label: "10am, Sundays", startHour: 10, sentimentDelta: 16, bookingPctDelta: 36, description: "Late-morning Sunday sessions are averaging 74% booked this month.", impliedInstructorId: "current" },
+      ],
+      instructor: [
+        { id: "current", instructorId: "i3", label: "Priya Ranjan", sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "swap", instructorId: "i5", label: "Theo Bishop", sentimentDelta: 10, bookingPctDelta: 20, description: "Theo Bishop's Barre Sculpt sessions elsewhere trend well above capacity." },
+      ],
+      classType: [
+        { id: "current", className: "Barre Sculpt", category: "barre", capacity: 16, price: 30, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "alt", className: "Power Barre", category: "barre", capacity: 14, price: 32, sentimentDelta: 3, bookingPctDelta: 8, description: "Power Barre formats have tested well in similar weekend slots." },
+      ],
+      defaultTimeId: "morning",
+      defaultInstructorId: "current",
+      defaultClassTypeId: "current",
     },
     sentimentContext: 58,
   },
@@ -322,15 +379,25 @@ export const UNDERPERFORMING_SLOTS: UnderperformingSlotDef[] = [
     id: "underperf-fri-8pm-w1",
     week: "next",
     target: { name: "Stillness", category: "meditation", room: "Studio C", dayOfWeek: 5, startHour: 20, durationMin: 30, capacity: 20, booked: 6, price: 18, instructorId: "i8" },
-    fixType: "instructor",
     headline: "Swap Friday's Stillness instructor to Nora Alderman",
     pattern: "Under 40% booked in 6 of the last 8 Fridays",
     rationale: "Rhea Delaine's Friday night Stillness sessions are consistently the lowest-booked meditation slot of the week, while Nora Alderman's sessions earlier in the week run well ahead of capacity. Same format, same time — a calmer, more established voice for the Friday close.",
-    proposal: {
-      label: "Nora Alderman",
-      description: "Nora Alderman's meditation sessions elsewhere this week are averaging 68% booked.",
-      projectedBookingPct: 68,
-      newInstructorId: "i1",
+    toggles: {
+      time: [
+        { id: "current", label: "8pm, Fridays", startHour: 20, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "earlier", label: "6:30pm, Fridays", startHour: 18.5, sentimentDelta: 5, bookingPctDelta: 12, description: "An earlier Friday slot catches clients before after-work energy fades." },
+      ],
+      instructor: [
+        { id: "current", instructorId: "i8", label: "Rhea Delaine", sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "swap", instructorId: "i1", label: "Nora Alderman", sentimentDelta: 18, bookingPctDelta: 38, description: "Nora Alderman's meditation sessions elsewhere this week are averaging 68% booked." },
+      ],
+      classType: [
+        { id: "current", className: "Stillness", category: "meditation", capacity: 20, price: 18, sentimentDelta: 0, bookingPctDelta: 0 },
+        { id: "restorative", className: "Restorative Flow", category: "yoga", capacity: 18, price: 22, sentimentDelta: 15, bookingPctDelta: 30, description: "Restorative-style formats have historically outperformed pure meditation on Friday nights." },
+      ],
+      defaultTimeId: "current",
+      defaultInstructorId: "swap",
+      defaultClassTypeId: "current",
     },
     sentimentContext: 44,
   },
